@@ -242,7 +242,7 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       averageVideoLength: avgLength,
       uploadFrequency,
       bestVideo: best?.snippet?.title ?? "N/A",
-      bestVideoUrl: best ? `https://www.youtube.com/watch?v=${best.id}` : "",
+      bestVideoUrl: best ? `https://www.youtube.com/watch?app=desktop&v=${best.id}` : "",
       bestViews: best ? nf.format(Number(best.statistics?.viewCount ?? 0)) : "N/A",
       style,
     };
