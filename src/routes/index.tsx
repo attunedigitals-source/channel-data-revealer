@@ -38,6 +38,7 @@ const COLUMNS: { key: keyof ChannelReport; label: string }[] = [
   { key: "averageVideoLength", label: "Average Video Length" },
   { key: "uploadFrequency", label: "Upload Frequency" },
   { key: "bestVideo", label: "Best Video" },
+  { key: "bestVideoUrl", label: "Best Video URL" },
   { key: "bestViews", label: "Best Views" },
   { key: "style", label: "Style" },
 ];
