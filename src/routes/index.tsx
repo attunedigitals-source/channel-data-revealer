@@ -38,7 +38,6 @@ const COLUMNS: { key: keyof ChannelReport; label: string }[] = [
   { key: "averageVideoLength", label: "Average Video Length" },
   { key: "uploadFrequency", label: "Upload Frequency" },
   { key: "bestVideo", label: "Best Video" },
-  { key: "bestVideoUrl", label: "Best Video URL" },
   { key: "bestViews", label: "Best Views" },
   { key: "style", label: "Style" },
 ];
@@ -149,6 +148,19 @@ function Index() {
                         >
                           {row.url.replace("https://www.youtube.com/", "")}
                         </a>
+                      ) : c.key === "bestVideo" ? (
+                        row.bestVideoUrl ? (
+                          <a
+                            href={row.bestVideoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {row.bestVideo}
+                          </a>
+                        ) : (
+                          <span>{row.bestVideo}</span>
+                        )
                       ) : (
                         <span className={c.key === "channel" ? "font-medium" : ""}>{row[c.key]}</span>
                       )}
