@@ -195,7 +195,8 @@ export const analyzeChannel = createServerFn({ method: "POST" })
         });
         niche = output.niche;
         style = output.style;
-      } catch {
+      } catch (err) {
+        console.error("AI classify failed:", err);
         niche = "Unavailable";
         style = "Unavailable";
       }
