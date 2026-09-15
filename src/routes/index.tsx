@@ -148,6 +148,19 @@ function Index() {
                         >
                           {row.url.replace("https://www.youtube.com/", "")}
                         </a>
+                      ) : c.key === "bestVideo" ? (
+                        row.bestVideoUrl ? (
+                          <a
+                            href={row.bestVideoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {row.bestVideo}
+                          </a>
+                        ) : (
+                          <span>{row.bestVideo}</span>
+                        )
                       ) : (
                         <span className={c.key === "channel" ? "font-medium" : ""}>{row[c.key]}</span>
                       )}
