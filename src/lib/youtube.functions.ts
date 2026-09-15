@@ -159,11 +159,34 @@ export const analyzeChannel = createServerFn({ method: "POST" })
             : "N/A";
     }
 
-    const best = videos.reduce<any | undefined>((acc, v) => {
+    // Fallback: best among the 50 most recent uploads.
+    let best = videos.reduce<any | undefined>((acc, v) => {
       const views = Number(v.statistics?.viewCount ?? 0);
       const accViews = Number(acc?.statistics?.viewCount ?? -1);
       return views > accViews ? v : acc;
     }, undefined);
+
+    // The real best: the channel's all-time most-viewed video.
+    try {
+      const topSearch = await yt(
+        "search",
+        {
+          part: "snippet",
+          channelId: channel.id,
+          order: "viewCount",
+          type: "video",
+          maxResults: "1",
+        },
+        key,
+      );
+      const topId = topSearch.items?.[0]?.id?.videoId;
+      if (topId) {
+        const topRes = await yt("videos", { part: "snippet,statistics", id: topId }, key);
+        if (topRes.items?.[0]) best = topRes.items[0];
+      }
+    } catch (err) {
+      console.error("Best-video search failed, using recent uploads:", err);
+    }
 
     let niche = "Unavailable";
     let style = "Unavailable";
