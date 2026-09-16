@@ -48,7 +48,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 `Video title: "${data.title}"`,
               ].join("\n"),
             },
-            { type: "image", image: data.thumbnail },
+            { type: "file", data: data.thumbnail, mediaType: "image/jpeg" },
           ],
         },
       ],
