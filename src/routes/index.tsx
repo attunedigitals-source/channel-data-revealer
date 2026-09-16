@@ -42,6 +42,21 @@ const COLUMNS: { key: keyof ChannelReport; label: string }[] = [
   { key: "style", label: "Style" },
 ];
 
+// The preview runs inside a sandboxed frame, where a plain target="_blank"
+// popup inherits the sandbox and YouTube refuses to load. Opening from the
+// top-level window escapes that.
+const openExternal = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  e.preventDefault();
+  const w = window.top ?? window;
+  try {
+    const opened = w.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) window.open(url, "_blank", "noopener,noreferrer");
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
+
 function Index() {
   const [url, setUrl] = useState("");
   const [rows, setRows] = useState<ChannelReport[]>([]);
@@ -139,11 +154,12 @@ function Index() {
                 <tr key={row.url} className="border-b border-border last:border-0 hover:bg-accent/40">
                   {COLUMNS.map((c) => (
                     <td key={c.key} className="px-4 py-4 align-top">
-                      {c.key === "url" ? (
+                       {c.key === "url" ? (
                         <a
                           href={row.url}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
+                          onClick={openExternal(row.url)}
                           className="text-primary underline-offset-4 hover:underline"
                         >
                           {row.url.replace("https://www.youtube.com/", "")}
@@ -153,7 +169,8 @@ function Index() {
                           <a
                             href={row.bestVideoUrl}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
+                            onClick={openExternal(row.bestVideoUrl)}
                             className="text-primary underline-offset-4 hover:underline"
                           >
                             {row.bestVideo}
