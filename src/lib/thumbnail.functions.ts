@@ -48,7 +48,12 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 `Video title: "${data.title}"`,
               ].join("\n"),
             },
-            { type: "file", data: data.thumbnail, mediaType: "image/jpeg" },
+            {
+              type: "file",
+              data: data.thumbnail,
+              mediaType: (data.thumbnail.match(/^data:(image\/[a-zA-Z0-9.+-]+);/)?.[1] ??
+                "image/jpeg") as `image/${string}`,
+            },
           ],
         },
       ],
