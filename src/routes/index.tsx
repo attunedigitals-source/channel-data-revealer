@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Loader2, Play, Search } from "lucide-react";
+import { ImagePlus, Loader2, Play, Search, X } from "lucide-react";
 import { analyzeChannel, type ChannelReport } from "@/lib/youtube.functions";
+import { analyzeThumbnail, type ThumbnailReport } from "@/lib/thumbnail.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
