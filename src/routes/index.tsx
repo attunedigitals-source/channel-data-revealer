@@ -42,6 +42,21 @@ const COLUMNS: { key: keyof ChannelReport; label: string }[] = [
   { key: "style", label: "Style" },
 ];
 
+// The preview runs inside a sandboxed frame, where a plain target="_blank"
+// popup inherits the sandbox and YouTube refuses to load. Opening from the
+// top-level window escapes that.
+const openExternal = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  e.preventDefault();
+  const w = window.top ?? window;
+  try {
+    const opened = w.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) window.open(url, "_blank", "noopener,noreferrer");
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
+
 function Index() {
   const [url, setUrl] = useState("");
   const [rows, setRows] = useState<ChannelReport[]>([]);
