@@ -190,6 +190,167 @@ function Index() {
           </table>
         </div>
       </section>
+
+      <ThumbnailSection />
     </main>
+  );
+}
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function ThumbnailSection() {
+  const [title, setTitle] = useState("");
+  const [thumb, setThumb] = useState<string | null>(null);
+  const [reports, setReports] = useState<ThumbnailReport[]>([]);
+  const run = useServerFn(analyzeThumbnail);
+
+  const mutation = useMutation({
+    mutationFn: (input: { title: string; thumbnail: string }) => run({ data: input }),
+    onSuccess: (report) => {
+      setReports((prev) => [report, ...prev]);
+      setTitle("");
+      setThumb(null);
+    },
+  });
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Please pick an image under 5 MB.");
+      return;
+    }
+    setThumb(await readAsDataUrl(file));
+    e.target.value = "";
+  }
+
+  function onAnalyze(e: FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !thumb || mutation.isPending) return;
+    mutation.mutate({ title: title.trim(), thumbnail: thumb });
+  }
+
+  return (
+    <section className="mx-auto max-w-6xl px-6 pb-16">
+      <div
+        className="rounded-lg border border-border bg-card p-6 sm:p-8"
+        style={{ boxShadow: "var(--shadow-panel)" }}
+      >
+        <div className="flex items-center gap-2 text-primary">
+          <ImagePlus className="h-5 w-5" />
+          <span className="text-sm font-semibold uppercase tracking-[0.2em]">
+            Title &amp; Thumbnail Lab
+          </span>
+        </div>
+        <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+          Test your packaging before you publish.
+        </h2>
+        <p className="mt-2 max-w-xl text-muted-foreground">
+          Enter a video title and upload its thumbnail to see the question the title creates and
+          what the thumbnail communicates.
+        </p>
+
+        <form onSubmit={onAnalyze} className="mt-6 flex flex-col gap-4">
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. I Tried the World's Cheapest Camera"
+            aria-label="Video title"
+            maxLength={300}
+            className="h-12"
+          />
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <label className="flex h-28 w-full cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-secondary/40 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 sm:w-56">
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                aria-label="Upload thumbnail"
+                onChange={onFile}
+              />
+              {thumb ? (
+                <img
+                  src={thumb}
+                  alt="Uploaded thumbnail preview"
+                  className="h-full w-full rounded-lg object-cover"
+                />
+              ) : (
+                <span className="flex flex-col items-center gap-1">
+                  <ImagePlus className="h-5 w-5" />
+                  Upload thumbnail
+                </span>
+              )}
+            </label>
+            {thumb && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setThumb(null)}
+                className="self-start"
+              >
+                <X className="h-4 w-4" /> Remove
+              </Button>
+            )}
+          </div>
+
+          <div>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={!title.trim() || !thumb || mutation.isPending}
+              className="h-12"
+            >
+              {mutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Analyze packaging
+            </Button>
+          </div>
+
+          {mutation.isError && (
+            <p className="text-sm text-destructive">{(mutation.error as Error).message}</p>
+          )}
+        </form>
+
+        {reports.length > 0 && (
+          <div className="mt-8 flex flex-col gap-4">
+            {reports.map((r, i) => (
+              <article
+                key={`${r.title}-${i}`}
+                className="flex flex-col gap-4 rounded-lg border border-border bg-secondary/30 p-4 sm:flex-row"
+              >
+                <img
+                  src={r.thumbnail}
+                  alt={`Thumbnail for ${r.title}`}
+                  className="h-32 w-full rounded-md object-cover sm:w-56"
+                />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-medium">{r.title}</h3>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Question the title creates
+                  </p>
+                  <p className="mt-1 text-sm">{r.titleQuestion}</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    What the thumbnail communicates
+                  </p>
+                  <p className="mt-1 text-sm">{r.thumbnailMessage}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
