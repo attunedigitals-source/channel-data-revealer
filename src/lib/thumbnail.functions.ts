@@ -13,6 +13,11 @@ export type ThumbnailReport = {
   thumbnailMessage: string;
 };
 
+const ResultSchema = z.object({
+  titleQuestion: z.string(),
+  thumbnailMessage: z.string(),
+});
+
 export const analyzeThumbnail = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ThumbnailReport> => {
@@ -23,46 +28,69 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
     }
 
-    const { generateText, Output } = await import("ai");
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(lovableKey);
-
-    const { output } = await generateText({
-      model: gateway("google/gemini-3.8-flash"),
-      output: Output.object({
-        schema: z.object({
-          titleQuestion: z.string(),
-          thumbnailMessage: z.string(),
-        }),
-      }),
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: [
-                "You are a YouTube packaging expert analyzing a video's title and thumbnail.",
-                "1. titleQuestion: The single burning question or curiosity gap the title creates in a viewer's mind. Write it as one question, phrased the way the viewer would ask it.",
-                "2. thumbnailMessage: What the thumbnail communicates visually (subject, emotion, text, colors, composition, and the promise it makes) in 1-2 sentences.",
-                `Video title: "${data.title}"`,
-              ].join("\n"),
+    // The AI SDK hangs on image parts through this provider, so call the
+    // gateway's chat completions endpoint directly with a strict JSON schema.
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": lovableKey,
+        "X-Lovable-AIG-SDK": "fetch",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3.8-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: [
+                  "You are a YouTube packaging expert analyzing a video's title and thumbnail.",
+                  "1. titleQuestion: The single burning question or curiosity gap the title creates in a viewer's mind. Write it as one question, phrased the way the viewer would ask it.",
+                  "2. thumbnailMessage: What the thumbnail communicates visually (subject, emotion, text, colors, composition, and the promise it makes) in 1-2 sentences.",
+                  `Video title: "${data.title}"`,
+                ].join("\n"),
+              },
+              { type: "image_url", image_url: { url: data.thumbnail } },
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "thumbnail_analysis",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                titleQuestion: { type: "string" },
+                thumbnailMessage: { type: "string" },
+              },
+              required: ["titleQuestion", "thumbnailMessage"],
+              additionalProperties: false,
             },
-            {
-              type: "file",
-              data: data.thumbnail,
-              mediaType: (data.thumbnail.match(/^data:(image\/[a-zA-Z0-9.+-]+);/)?.[1] ??
-                "image/jpeg") as `image/${string}`,
-            },
-          ],
+          },
         },
-      ],
+      }),
     });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`AI analysis failed (${res.status}): ${body.slice(0, 300)}`);
+    }
+
+    const json = (await res.json()) as any;
+    const content: string | undefined = json.choices?.[0]?.message?.content;
+    if (!content) throw new Error("The AI returned an empty response. Try again.");
+
+    const parsed = ResultSchema.safeParse(JSON.parse(content));
+    if (!parsed.success) throw new Error("The AI response was malformed. Try again.");
 
     return {
       title: data.title,
       thumbnail: data.thumbnail,
-      titleQuestion: output.titleQuestion,
-      thumbnailMessage: output.thumbnailMessage,
+      titleQuestion: parsed.data.titleQuestion,
+      thumbnailMessage: parsed.data.thumbnailMessage,
     };
   });
