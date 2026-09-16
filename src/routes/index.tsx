@@ -139,11 +139,12 @@ function Index() {
                 <tr key={row.url} className="border-b border-border last:border-0 hover:bg-accent/40">
                   {COLUMNS.map((c) => (
                     <td key={c.key} className="px-4 py-4 align-top">
-                      {c.key === "url" ? (
+                       {c.key === "url" ? (
                         <a
                           href={row.url}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
+                          onClick={openExternal(row.url)}
                           className="text-primary underline-offset-4 hover:underline"
                         >
                           {row.url.replace("https://www.youtube.com/", "")}
@@ -153,7 +154,8 @@ function Index() {
                           <a
                             href={row.bestVideoUrl}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
+                            onClick={openExternal(row.bestVideoUrl)}
                             className="text-primary underline-offset-4 hover:underline"
                           >
                             {row.bestVideo}
