@@ -177,12 +177,19 @@ export const analyzeChannel = createServerFn({ method: "POST" })
             : "N/A";
     }
 
-    // Best video = highest view count across every upload we scanned.
+    // Best video = highest view count across every upload on the channel.
+    // Shorts (<= 60s) are excluded so the winner is a real video.
     let best: any | undefined;
+    let bestShort: any | undefined;
     const pickBest = (list: any[]) => {
       for (const v of list) {
         const views = Number(v.statistics?.viewCount ?? 0);
-        if (!best || views > Number(best.statistics?.viewCount ?? -1)) best = v;
+        const isShort = isoDurationToSeconds(v.contentDetails?.duration ?? "") <= 60;
+        if (isShort) {
+          if (!bestShort || views > Number(bestShort.statistics?.viewCount ?? -1)) bestShort = v;
+        } else if (!best || views > Number(best.statistics?.viewCount ?? -1)) {
+          best = v;
+        }
       }
     };
     pickBest(videos);
@@ -198,7 +205,11 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       const results = await Promise.all(
         chunks.slice(i, i + WAVE).map(async (chunk) => {
           try {
-            const r = await yt("videos", { part: "snippet,statistics", id: chunk.join(",") }, key);
+            const r = await yt(
+              "videos",
+              { part: "snippet,contentDetails,statistics", id: chunk.join(",") },
+              key,
+            );
             return (r.items ?? []) as any[];
           } catch (err) {
             console.error("Stats batch failed:", err);
@@ -208,6 +219,9 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       );
       for (const list of results) pickBest(list);
     }
+
+    if (!best) best = bestShort;
+
 
 
 
