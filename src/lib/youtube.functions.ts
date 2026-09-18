@@ -67,7 +67,11 @@ const nf = new Intl.NumberFormat("en-US");
 export const analyzeChannel = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ChannelReport> => {
-    const key = process.env["YOUTUBE_API_KEY"];
+    const key =
+      process.env["YOUTUBE_API_KEY"] ||
+      process.env["VITE_YOUTUBE_API_KEY"] ||
+      (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_YOUTUBE_API_KEY ||
+      (import.meta as unknown as { env?: Record<string, string> }).env?.YOUTUBE_API_KEY;
     if (!key) throw new Error("Missing YouTube API key. Add YOUTUBE_API_KEY to continue.");
 
     const ident = parseIdentifier(data.url);
