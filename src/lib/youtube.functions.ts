@@ -111,20 +111,38 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     const uploadsId: string | undefined = channel.contentDetails?.relatedPlaylists?.uploads;
     let videoIds: string[] = [];
     let uploadDates: string[] = [];
+    const allVideoIds: string[] = [];
 
     if (uploadsId) {
-      const playlist = await yt(
-        "playlistItems",
-        { part: "contentDetails", playlistId: uploadsId, maxResults: "50" },
-        key,
-      );
-      videoIds = (playlist.items ?? [])
-        .map((i: any) => i.contentDetails?.videoId)
-        .filter(Boolean)
-        .slice(0, 50);
-      uploadDates = (playlist.items ?? [])
-        .map((i: any) => i.contentDetails?.videoPublishedAt)
-        .filter(Boolean);
+      // Page through the uploads playlist so "best video" looks at the whole
+      // library, not just the latest 50 (search.list only indexes a handful).
+      let pageToken: string | undefined;
+      const MAX_PAGES = 20; // up to 1000 videos
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const params: Record<string, string> = {
+          part: "contentDetails",
+          playlistId: uploadsId,
+          maxResults: "50",
+        };
+        if (pageToken) params["pageToken"] = pageToken;
+        const playlist = await yt("playlistItems", params, key);
+        const items = playlist.items ?? [];
+        for (const i of items) {
+          const id = i.contentDetails?.videoId;
+          if (id) allVideoIds.push(id);
+        }
+        if (page === 0) {
+          videoIds = items
+            .map((i: any) => i.contentDetails?.videoId)
+            .filter(Boolean)
+            .slice(0, 50);
+          uploadDates = items
+            .map((i: any) => i.contentDetails?.videoPublishedAt)
+            .filter(Boolean);
+        }
+        pageToken = playlist.nextPageToken;
+        if (!pageToken) break;
+      }
     }
 
     let videos: any[] = [];
@@ -159,34 +177,28 @@ export const analyzeChannel = createServerFn({ method: "POST" })
             : "N/A";
     }
 
-    // Fallback: best among the 50 most recent uploads.
-    let best = videos.reduce<any | undefined>((acc, v) => {
-      const views = Number(v.statistics?.viewCount ?? 0);
-      const accViews = Number(acc?.statistics?.viewCount ?? -1);
-      return views > accViews ? v : acc;
-    }, undefined);
-
-    // The real best: the channel's all-time most-viewed video.
-    try {
-      const topSearch = await yt(
-        "search",
-        {
-          part: "snippet",
-          channelId: channel.id,
-          order: "viewCount",
-          type: "video",
-          maxResults: "1",
-        },
-        key,
-      );
-      const topId = topSearch.items?.[0]?.id?.videoId;
-      if (topId) {
-        const topRes = await yt("videos", { part: "snippet,statistics", id: topId }, key);
-        if (topRes.items?.[0]) best = topRes.items[0];
+    // Best video = highest view count across every upload we scanned.
+    let best: any | undefined;
+    const pickBest = (list: any[]) => {
+      for (const v of list) {
+        const views = Number(v.statistics?.viewCount ?? 0);
+        if (!best || views > Number(best.statistics?.viewCount ?? -1)) best = v;
       }
-    } catch (err) {
-      console.error("Best-video search failed, using recent uploads:", err);
+    };
+    pickBest(videos);
+
+    const remaining = allVideoIds.filter((id) => !videoIds.includes(id));
+    for (let i = 0; i < remaining.length; i += 50) {
+      const chunk = remaining.slice(i, i + 50);
+      try {
+        const r = await yt("videos", { part: "snippet,statistics", id: chunk.join(",") }, key);
+        pickBest(r.items ?? []);
+      } catch (err) {
+        console.error("Stats batch failed:", err);
+      }
     }
+
+
 
     let niche = "Unavailable";
     let style = "Unavailable";
