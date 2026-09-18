@@ -117,7 +117,7 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       // Page through the uploads playlist so "best video" looks at the whole
       // library, not just the latest 50 (search.list only indexes a handful).
       let pageToken: string | undefined;
-      const MAX_PAGES = 20; // up to 1000 videos
+      const MAX_PAGES = 400; // up to 20,000 videos (whole channel)
       for (let page = 0; page < MAX_PAGES; page++) {
         const params: Record<string, string> = {
           part: "contentDetails",
@@ -177,26 +177,52 @@ export const analyzeChannel = createServerFn({ method: "POST" })
             : "N/A";
     }
 
-    // Best video = highest view count across every upload we scanned.
+    // Best video = highest view count across every upload on the channel.
+    // Shorts (<= 60s) are excluded so the winner is a real video.
     let best: any | undefined;
+    let bestShort: any | undefined;
     const pickBest = (list: any[]) => {
       for (const v of list) {
         const views = Number(v.statistics?.viewCount ?? 0);
-        if (!best || views > Number(best.statistics?.viewCount ?? -1)) best = v;
+        const isShort = isoDurationToSeconds(v.contentDetails?.duration ?? "") <= 60;
+        if (isShort) {
+          if (!bestShort || views > Number(bestShort.statistics?.viewCount ?? -1)) bestShort = v;
+        } else if (!best || views > Number(best.statistics?.viewCount ?? -1)) {
+          best = v;
+        }
       }
     };
     pickBest(videos);
 
-    const remaining = allVideoIds.filter((id) => !videoIds.includes(id));
-    for (let i = 0; i < remaining.length; i += 50) {
-      const chunk = remaining.slice(i, i + 50);
-      try {
-        const r = await yt("videos", { part: "snippet,statistics", id: chunk.join(",") }, key);
-        pickBest(r.items ?? []);
-      } catch (err) {
-        console.error("Stats batch failed:", err);
-      }
+    const seen = new Set(videoIds);
+    const remaining = allVideoIds.filter((id) => !seen.has(id));
+    const chunks: string[][] = [];
+    for (let i = 0; i < remaining.length; i += 50) chunks.push(remaining.slice(i, i + 50));
+
+    // Fetch stats batches in parallel waves so big channels stay fast.
+    const WAVE = 10;
+    for (let i = 0; i < chunks.length; i += WAVE) {
+      const results = await Promise.all(
+        chunks.slice(i, i + WAVE).map(async (chunk) => {
+          try {
+            const r = await yt(
+              "videos",
+              { part: "snippet,contentDetails,statistics", id: chunk.join(",") },
+              key,
+            );
+            return (r.items ?? []) as any[];
+          } catch (err) {
+            console.error("Stats batch failed:", err);
+            return [] as any[];
+          }
+        }),
+      );
+      for (const list of results) pickBest(list);
     }
+
+    if (!best) best = bestShort;
+
+
 
 
 
