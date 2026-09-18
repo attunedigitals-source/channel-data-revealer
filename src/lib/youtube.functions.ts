@@ -187,16 +187,28 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     };
     pickBest(videos);
 
-    const remaining = allVideoIds.filter((id) => !videoIds.includes(id));
-    for (let i = 0; i < remaining.length; i += 50) {
-      const chunk = remaining.slice(i, i + 50);
-      try {
-        const r = await yt("videos", { part: "snippet,statistics", id: chunk.join(",") }, key);
-        pickBest(r.items ?? []);
-      } catch (err) {
-        console.error("Stats batch failed:", err);
-      }
+    const seen = new Set(videoIds);
+    const remaining = allVideoIds.filter((id) => !seen.has(id));
+    const chunks: string[][] = [];
+    for (let i = 0; i < remaining.length; i += 50) chunks.push(remaining.slice(i, i + 50));
+
+    // Fetch stats batches in parallel waves so big channels stay fast.
+    const WAVE = 10;
+    for (let i = 0; i < chunks.length; i += WAVE) {
+      const results = await Promise.all(
+        chunks.slice(i, i + WAVE).map(async (chunk) => {
+          try {
+            const r = await yt("videos", { part: "snippet,statistics", id: chunk.join(",") }, key);
+            return (r.items ?? []) as any[];
+          } catch (err) {
+            console.error("Stats batch failed:", err);
+            return [] as any[];
+          }
+        }),
+      );
+      for (const list of results) pickBest(list);
     }
+
 
 
 
