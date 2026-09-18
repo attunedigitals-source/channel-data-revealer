@@ -117,7 +117,7 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       // Page through the uploads playlist so "best video" looks at the whole
       // library, not just the latest 50 (search.list only indexes a handful).
       let pageToken: string | undefined;
-      const MAX_PAGES = 20; // up to 1000 videos
+      const MAX_PAGES = 400; // up to 20,000 videos (whole channel)
       for (let page = 0; page < MAX_PAGES; page++) {
         const params: Record<string, string> = {
           part: "contentDetails",
