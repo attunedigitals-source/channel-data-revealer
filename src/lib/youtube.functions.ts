@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getChannelNicheAndStyle } from "./classifier";
 
 const Input = z.object({
   url: z.string().trim().min(3).max(300),
   apiKey: z.string().trim().optional(),
+  aiApiKey: z.string().trim().optional(),
 });
 
 export type ChannelReport = {
@@ -114,14 +116,14 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     if (ident.type === "id") {
       const r = await yt(
         "channels",
-        { part: "snippet,statistics,contentDetails", id: ident.value },
+        { part: "snippet,statistics,contentDetails,topicDetails", id: ident.value },
         key,
       );
       channel = r.items?.[0];
     } else if (ident.type === "handle") {
       const r = await yt(
         "channels",
-        { part: "snippet,statistics,contentDetails", forHandle: ident.value },
+        { part: "snippet,statistics,contentDetails,topicDetails", forHandle: ident.value },
         key,
       );
       channel = r.items?.[0];
@@ -137,7 +139,7 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       if (foundId) {
         const r = await yt(
           "channels",
-          { part: "snippet,statistics,contentDetails", id: foundId },
+          { part: "snippet,statistics,contentDetails,topicDetails", id: foundId },
           key,
         );
         channel = r.items?.[0];
@@ -264,43 +266,16 @@ export const analyzeChannel = createServerFn({ method: "POST" })
 
 
 
-    let niche = "Unavailable";
-    let style = "Unavailable";
-    const lovableKey = process.env["LOVABLE_API_KEY"];
-    if (lovableKey) {
-      try {
-        const { generateText, Output } = await import("ai");
-        const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-        const gateway = createLovableAiGatewayProvider(lovableKey);
-        const { output } = await generateText({
-          model: gateway("google/gemini-3.8-flash"),
-          output: Output.object({
-            schema: z.object({
-              niche: z.string(),
-              style: z.string(),
-            }),
-          }),
-          prompt: [
-            "Classify this YouTube channel. Reply with a short niche (2-4 words) and a short content style description (3-8 words).",
-            `Channel: ${channel.snippet?.title ?? ""}`,
-            `Description: ${(channel.snippet?.description ?? "").slice(0, 800)}`,
-            `Recent video titles: ${videos
-              .slice(0, 15)
-              .map((v) => v.snippet?.title)
-              .filter(Boolean)
-              .join(" | ")
-              .slice(0, 1200)}`,
-            `Average video length: ${avgLength}`,
-          ].join("\n"),
-        });
-        niche = output.niche;
-        style = output.style;
-      } catch (err) {
-        console.error("AI classify failed:", err);
-        niche = "Unavailable";
-        style = "Unavailable";
-      }
-    }
+    const avgDurationSeconds = durations.length
+      ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : 0;
+
+    const { niche, style } = await getChannelNicheAndStyle({
+      channel,
+      videos,
+      avgDurationSeconds,
+      customAiKey: data.aiApiKey?.trim(),
+    });
 
     const handle: string | undefined = channel.snippet?.customUrl;
     const canonicalUrl = handle

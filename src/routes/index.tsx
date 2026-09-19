@@ -8,7 +8,7 @@ import { analyzeThumbnail, type ThumbnailReport } from "@/lib/thumbnail.function
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ApiKeyModal, API_KEY_STORAGE_KEY } from "@/components/ApiKeyModal";
+import { ApiKeyModal, API_KEY_STORAGE_KEY, AI_KEY_STORAGE_KEY } from "@/components/ApiKeyModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -64,6 +64,7 @@ function Index() {
   const [url, setUrl] = useState("");
   const [rows, setRows] = useState<ChannelReport[]>([]);
   const [apiKey, setApiKey] = useState("");
+  const [aiApiKey, setAiApiKey] = useState("");
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [hasServerKey, setHasServerKey] = useState(false);
 
@@ -74,6 +75,8 @@ function Index() {
     try {
       const stored = localStorage.getItem(API_KEY_STORAGE_KEY);
       if (stored) setApiKey(stored);
+      const storedAi = localStorage.getItem(AI_KEY_STORAGE_KEY);
+      if (storedAi) setAiApiKey(storedAi);
     } catch {
       // ignore localStorage errors in restricted environments
     }
@@ -86,7 +89,8 @@ function Index() {
   }, [checkServerKey]);
 
   const mutation = useMutation({
-    mutationFn: (value: string) => run({ data: { url: value, apiKey: apiKey || undefined } }),
+    mutationFn: (value: string) =>
+      run({ data: { url: value, apiKey: apiKey || undefined, aiApiKey: aiApiKey || undefined } }),
     onSuccess: (report) => {
       setRows((prev) => [report, ...prev.filter((r) => r.url !== report.url)]);
       setUrl("");
@@ -100,10 +104,23 @@ function Index() {
     } catch {}
   }
 
+  function handleSaveAiKey(newAiKey: string) {
+    setAiApiKey(newAiKey);
+    try {
+      if (newAiKey) {
+        localStorage.setItem(AI_KEY_STORAGE_KEY, newAiKey);
+      } else {
+        localStorage.removeItem(AI_KEY_STORAGE_KEY);
+      }
+    } catch {}
+  }
+
   function handleClearKey() {
     setApiKey("");
+    setAiApiKey("");
     try {
       localStorage.removeItem(API_KEY_STORAGE_KEY);
+      localStorage.removeItem(AI_KEY_STORAGE_KEY);
     } catch {}
   }
 
@@ -273,7 +290,9 @@ function Index() {
         open={keyModalOpen}
         onOpenChange={setKeyModalOpen}
         apiKey={apiKey}
+        aiApiKey={aiApiKey}
         onSaveKey={handleSaveKey}
+        onSaveAiKey={handleSaveAiKey}
         onClearKey={handleClearKey}
         hasServerKey={hasServerKey}
       />
