@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { ImagePlus, Loader2, Play, Search, X } from "lucide-react";
-import { analyzeChannel, type ChannelReport } from "@/lib/youtube.functions";
+import { useState, useEffect, type FormEvent } from "react";
+import { AlertCircle, ImagePlus, KeyRound, Loader2, Play, Search, X } from "lucide-react";
+import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import { analyzeThumbnail, type ThumbnailReport } from "@/lib/thumbnail.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ApiKeyModal, API_KEY_STORAGE_KEY } from "@/components/ApiKeyModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -61,15 +63,49 @@ const openExternal = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) =
 function Index() {
   const [url, setUrl] = useState("");
   const [rows, setRows] = useState<ChannelReport[]>([]);
+  const [apiKey, setApiKey] = useState("");
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [hasServerKey, setHasServerKey] = useState(false);
+
   const run = useServerFn(analyzeChannel);
+  const checkServerKey = useServerFn(getApiConfigStatus);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(API_KEY_STORAGE_KEY);
+      if (stored) setApiKey(stored);
+    } catch {
+      // ignore localStorage errors in restricted environments
+    }
+
+    checkServerKey()
+      .then((res) => {
+        if (res?.hasServerKey) setHasServerKey(true);
+      })
+      .catch(() => {});
+  }, [checkServerKey]);
 
   const mutation = useMutation({
-    mutationFn: (value: string) => run({ data: { url: value } }),
+    mutationFn: (value: string) => run({ data: { url: value, apiKey: apiKey || undefined } }),
     onSuccess: (report) => {
       setRows((prev) => [report, ...prev.filter((r) => r.url !== report.url)]);
       setUrl("");
     },
   });
+
+  function handleSaveKey(newKey: string) {
+    setApiKey(newKey);
+    try {
+      localStorage.setItem(API_KEY_STORAGE_KEY, newKey);
+    } catch {}
+  }
+
+  function handleClearKey() {
+    setApiKey("");
+    try {
+      localStorage.removeItem(API_KEY_STORAGE_KEY);
+    } catch {}
+  }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -82,12 +118,37 @@ function Index() {
         className="border-b border-border"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
-        <div className="mx-auto max-w-6xl px-6 py-16">
-          <div className="flex items-center gap-2 text-primary">
-            <Play className="h-5 w-5 fill-current" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em]">Channel Sheet</span>
-          </div>
-          <h1 className="mt-5 max-w-2xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+        <div className="mx-auto max-w-6xl px-6 py-12 sm:py-16">
+          <header className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-primary">
+              <Play className="h-5 w-5 fill-current" />
+              <span className="text-sm font-semibold uppercase tracking-[0.2em]">Channel Sheet</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setKeyModalOpen(true)}
+              className="h-9 gap-2 border-border/80 bg-background/50 backdrop-blur text-xs hover:bg-accent cursor-pointer transition-colors"
+            >
+              <KeyRound className="h-3.5 w-3.5 text-primary" />
+              <span className="font-medium">API Key</span>
+              {hasServerKey ? (
+                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-500 border-0 text-[10px] px-1.5 py-0 h-4 font-normal">
+                  Server
+                </Badge>
+              ) : apiKey ? (
+                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-500 border-0 text-[10px] px-1.5 py-0 h-4 font-normal">
+                  Active
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-amber-500/40 text-amber-500 text-[10px] px-1.5 py-0 h-4 font-normal">
+                  Configure
+                </Badge>
+              )}
+            </Button>
+          </header>
+
+          <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
             Paste a YouTube channel link. Get the full data row.
           </h1>
           <p className="mt-4 max-w-xl text-muted-foreground">
@@ -104,7 +165,7 @@ function Index() {
               maxLength={300}
               className="h-12 flex-1"
             />
-            <Button type="submit" size="lg" disabled={mutation.isPending} className="h-12">
+            <Button type="submit" size="lg" disabled={mutation.isPending} className="h-12 cursor-pointer">
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -115,9 +176,24 @@ function Index() {
           </form>
 
           {mutation.isError && (
-            <p className="mt-4 text-sm text-destructive">
-              {(mutation.error as Error).message}
-            </p>
+            <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{(mutation.error as Error).message}</span>
+              </div>
+              {(mutation.error as Error).message.toLowerCase().includes("key") && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setKeyModalOpen(true)}
+                  className="h-8 shrink-0 text-xs gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Configure API Key
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -192,6 +268,15 @@ function Index() {
       </section>
 
       <ThumbnailSection />
+
+      <ApiKeyModal
+        open={keyModalOpen}
+        onOpenChange={setKeyModalOpen}
+        apiKey={apiKey}
+        onSaveKey={handleSaveKey}
+        onClearKey={handleClearKey}
+        hasServerKey={hasServerKey}
+      />
     </main>
   );
 }

@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const Input = z.object({ url: z.string().trim().min(3).max(300) });
+const Input = z.object({
+  url: z.string().trim().min(3).max(300),
+  apiKey: z.string().trim().optional(),
+});
 
 export type ChannelReport = {
   channel: string;
@@ -18,6 +21,34 @@ export type ChannelReport = {
 };
 
 const API = "https://www.googleapis.com/youtube/v3";
+
+export const getApiConfigStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const hasServerKey = Boolean(
+    process.env["YOUTUBE_API_KEY"] ||
+      process.env["VITE_YOUTUBE_API_KEY"] ||
+      (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
+      (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"],
+  );
+  return { hasServerKey };
+});
+
+export const validateApiKey = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ apiKey: z.string().trim().min(1) }).parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const res = await fetch(
+        `${API}/channels?part=id&id=UC_x5XG1OV2P6uZZ5FSM9Ttw&key=${encodeURIComponent(data.apiKey)}`,
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const message = body?.error?.message || `YouTube API error (${res.status})`;
+        return { valid: false, message };
+      }
+      return { valid: true, message: "Valid YouTube API key!" };
+    } catch (err: any) {
+      return { valid: false, message: err.message || "Failed to connect to YouTube API" };
+    }
+  });
 
 function parseIdentifier(raw: string) {
   const value = raw.trim();
@@ -68,11 +99,14 @@ export const analyzeChannel = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ChannelReport> => {
     const key =
+      data.apiKey?.trim() ||
       process.env["YOUTUBE_API_KEY"] ||
       process.env["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_YOUTUBE_API_KEY ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.YOUTUBE_API_KEY;
-    if (!key) throw new Error("Missing YouTube API key. Add YOUTUBE_API_KEY to continue.");
+      (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
+      (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"];
+    if (!key) {
+      throw new Error("Missing YouTube API key. Click 'API Key' to add your key or configure YOUTUBE_API_KEY.");
+    }
 
     const ident = parseIdentifier(data.url);
 
