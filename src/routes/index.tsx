@@ -285,6 +285,7 @@ function Index() {
       </section>
 
       <ThumbnailSection
+        apiKey={apiKey}
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
@@ -313,25 +314,51 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 interface ThumbnailSectionProps {
+  apiKey?: string;
   aiApiKey?: string;
   onOpenKeyModal?: () => void;
 }
 
-function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
+function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
   const [title, setTitle] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [thumb, setThumb] = useState<string | null>(null);
   const [reports, setReports] = useState<ThumbnailReport[]>([]);
   const run = useServerFn(analyzeThumbnail);
 
   const mutation = useMutation({
-    mutationFn: (input: { title: string; thumbnail: string }) =>
-      run({ data: { title: input.title, thumbnail: input.thumbnail, aiApiKey: aiApiKey || undefined } }),
+    mutationFn: (input: { title: string; thumbnail: string; videoUrl?: string }) =>
+      run({
+        data: {
+          title: input.title,
+          thumbnail: input.thumbnail,
+          videoUrl: input.videoUrl || undefined,
+          apiKey: apiKey || undefined,
+          aiApiKey: aiApiKey || undefined,
+        },
+      }),
     onSuccess: (report) => {
       setReports((prev) => [report, ...prev]);
       setTitle("");
       setThumb(null);
+      setVideoUrl("");
     },
   });
+
+  useEffect(() => {
+    if (!thumb && videoUrl.trim()) {
+      const match =
+        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i.exec(
+          videoUrl.trim()
+        );
+      const vid =
+        match?.[1] ||
+        (/^[a-zA-Z0-9_-]{11}$/.test(videoUrl.trim()) ? videoUrl.trim() : null);
+      if (vid) {
+        setThumb(`https://img.youtube.com/vi/${vid}/hqdefault.jpg`);
+      }
+    }
+  }, [videoUrl, thumb]);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -346,8 +373,8 @@ function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
 
   function onAnalyze(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !thumb || mutation.isPending) return;
-    mutation.mutate({ title: title.trim(), thumbnail: thumb });
+    if (!title.trim() || (!thumb && !videoUrl.trim()) || mutation.isPending) return;
+    mutation.mutate({ title: title.trim(), thumbnail: thumb || "", videoUrl: videoUrl.trim() });
   }
 
   return (
@@ -366,15 +393,23 @@ function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
           Test your packaging before you publish.
         </h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          Enter a video title and upload its thumbnail to see the question the title creates and
-          what the thumbnail communicates.
+          Enter a video title and upload its thumbnail to see the question the title creates,
+          what the thumbnail communicates, and what happens in the first 30 seconds.
         </p>
 
         <form onSubmit={onAnalyze} className="mt-6 flex flex-col gap-4">
           <Input
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="YouTube Video Link (optional — e.g. https://www.youtube.com/watch?v=...)"
+            aria-label="YouTube video URL"
+            className="h-12"
+          />
+
+          <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. I Tried the World's Cheapest Camera"
+            placeholder="e.g. Mansa Musa - History's Richest Man Documentary"
             aria-label="Video title"
             maxLength={300}
             className="h-12"
@@ -419,8 +454,8 @@ function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
             <Button
               type="submit"
               size="lg"
-              disabled={!title.trim() || !thumb || mutation.isPending}
-              className="h-12"
+              disabled={!title.trim() || (!thumb && !videoUrl.trim()) || mutation.isPending}
+              className="h-12 cursor-pointer"
             >
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -471,10 +506,22 @@ function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
                     Question the title creates
                   </p>
                   <p className="mt-1 text-sm">{r.titleQuestion}</p>
+                  
                   <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     What the thumbnail communicates
                   </p>
                   <p className="mt-1 text-sm">{r.thumbnailMessage}</p>
+
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    What happens in the first 30 seconds
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed">
+                    {r.first30Seconds === "Transcript disabled" ? (
+                      <span className="text-muted-foreground italic">Transcript disabled</span>
+                    ) : (
+                      r.first30Seconds
+                    )}
+                  </p>
                 </div>
               </article>
             ))}
