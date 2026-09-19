@@ -284,7 +284,10 @@ function Index() {
         </div>
       </section>
 
-      <ThumbnailSection />
+      <ThumbnailSection
+        aiApiKey={aiApiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
 
       <ApiKeyModal
         open={keyModalOpen}
@@ -309,14 +312,20 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function ThumbnailSection() {
+interface ThumbnailSectionProps {
+  aiApiKey?: string;
+  onOpenKeyModal?: () => void;
+}
+
+function ThumbnailSection({ aiApiKey, onOpenKeyModal }: ThumbnailSectionProps) {
   const [title, setTitle] = useState("");
   const [thumb, setThumb] = useState<string | null>(null);
   const [reports, setReports] = useState<ThumbnailReport[]>([]);
   const run = useServerFn(analyzeThumbnail);
 
   const mutation = useMutation({
-    mutationFn: (input: { title: string; thumbnail: string }) => run({ data: input }),
+    mutationFn: (input: { title: string; thumbnail: string }) =>
+      run({ data: { title: input.title, thumbnail: input.thumbnail, aiApiKey: aiApiKey || undefined } }),
     onSuccess: (report) => {
       setReports((prev) => [report, ...prev]);
       setTitle("");
@@ -423,7 +432,24 @@ function ThumbnailSection() {
           </div>
 
           {mutation.isError && (
-            <p className="text-sm text-destructive">{(mutation.error as Error).message}</p>
+            <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{(mutation.error as Error).message}</span>
+              </div>
+              {onOpenKeyModal && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={onOpenKeyModal}
+                  className="h-8 shrink-0 text-xs gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Configure AI Key
+                </Button>
+              )}
+            </div>
           )}
         </form>
 
