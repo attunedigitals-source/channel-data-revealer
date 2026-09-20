@@ -353,6 +353,8 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
       "What question does the title create?",
       "What does the thumbnail communicate?",
       "What happens in the first 30 seconds?",
+      "What is the central mystery/problem?",
+      "What appears to be the payoff?",
     ];
     const csvRows = [
       headers.join(","),
@@ -363,6 +365,8 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
           `"${(r.titleQuestion || "").replace(/"/g, '""')}"`,
           `"${(r.thumbnailMessage || "").replace(/"/g, '""')}"`,
           `"${(r.first30Seconds || "").replace(/"/g, '""')}"`,
+          `"${(r.centralMystery || "").replace(/"/g, '""')}"`,
+          `"${(r.payoff || "").replace(/"/g, '""')}"`,
         ].join(",")
       ),
     ];
@@ -699,6 +703,30 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
                         </p>
                       </div>
 
+                      {/* What is the central mystery/problem? */}
+                      {r.centralMystery && (
+                        <div className="mt-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            What is the central mystery/problem?
+                          </p>
+                          <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                            {r.centralMystery}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* What appears to be the payoff? */}
+                      {r.payoff && (
+                        <div className="mt-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            What appears to be the payoff?
+                          </p>
+                          <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                            {r.payoff}
+                          </p>
+                        </div>
+                      )}
+
                       {r.aiNotice && (
                         <div className="mt-4 flex items-start justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
                           <span>{r.aiNotice}</span>
@@ -722,7 +750,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
             {/* Spreadsheet Table View (Matching Excel Reference) */}
             {viewMode === "table" && (
               <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-                <table className="w-full min-w-[1000px] border-collapse text-sm">
+                <table className="w-full min-w-[1300px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border bg-secondary/60">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-48">
@@ -739,6 +767,12 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-72">
                         What happens in the first 30 seconds?
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-72">
+                        What is the central mystery/problem?
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-72">
+                        What appears to be the payoff?
                       </th>
                     </tr>
                   </thead>
@@ -769,6 +803,12 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
                         </td>
                         <td className="px-4 py-3.5 align-top text-xs leading-relaxed text-muted-foreground">
                           {r.first30Seconds}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-xs leading-relaxed text-muted-foreground">
+                          {r.centralMystery}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-xs leading-relaxed text-muted-foreground">
+                          {r.payoff}
                         </td>
                       </tr>
                     ))}

@@ -17,6 +17,8 @@ export type ThumbnailReport = {
   titleQuestion: string;
   thumbnailMessage: string;
   first30Seconds: string;
+  centralMystery?: string;
+  payoff?: string;
   analysisMode?: "vision_ai" | "smart_metadata";
   aiNotice?: string;
 };
@@ -32,6 +34,8 @@ const ResultSchema = z.object({
   titleQuestion: z.string(),
   thumbnailMessage: z.string(),
   first30Seconds: z.string().optional(),
+  centralMystery: z.string().optional(),
+  payoff: z.string().optional(),
 });
 
 function decodeHtmlEntities(str: string): string {
@@ -562,6 +566,8 @@ function synthesizePackaging({
   titleQuestion: string;
   thumbnailMessage: string;
   first30Seconds: string;
+  centralMystery: string;
+  payoff: string;
 } {
   const t = title.trim();
   const cTitle = cleanTitle(t);
@@ -672,6 +678,8 @@ function synthesizePackaging({
   let titleQuestion = "";
   let thumbnailMessage = "";
   let first30Seconds = "";
+  let centralMystery = "";
+  let payoff = "";
 
   switch (theme) {
     case "civilizations": {
@@ -684,6 +692,10 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with dramatic primordial imagery and atmospheric narration setting up humanity's earliest struggles: "${leadSynopsis.slice(0, 130)}...", establishing the immense timescale before transitioning to the first Mesopotamian river valleys.`
         : "Opens with sweeping primordial vistas and atmospheric narration depicting humanity's earliest mastery of fire, establishing the immense timescale before diving into the birth of agriculture and the first city-states of Mesopotamia.";
+      centralMystery =
+        "How isolated bands of vulnerable early hominids overcame climate extremes, predatory threats, and societal collapse to construct monumental wonders and enduring legal codes across 6,000 years.";
+      payoff =
+        "A seamless, panoramic understanding of how the foundational breakthroughs of ancient Mesopotamia, Egypt, Greece, and Rome directly shaped our modern global technological civilization.";
       break;
     }
 
@@ -696,6 +708,10 @@ function synthesizePackaging({
         `Framing the West African emperor in regal gold attire beneath ${ocrDisplay}, the packaging emphasizes unmatched historic majesty and promises an authoritative biographical breakdown of history's wealthiest monarch.`;
       first30Seconds =
         "Opens with vivid historical accounts of Mansa Musa's legendary gold-laden pilgrimage across the Sahara to Cairo and Mecca, establishing the staggering scale of his wealth before exploring the rise and economy of the Mali Empire.";
+      centralMystery =
+        "How a West African kingdom managed to control the primary trans-Saharan gold supply, and whether Mansa Musa's colossal fortune single-handedly destabilized the Mediterranean economy during his pilgrimage to Mecca.";
+      payoff =
+        "Discovering the staggering true magnitude of his 400-billion-dollar equivalent net worth, how the Mali Empire was structured, and the lasting legacy of his reign on global trade.";
       break;
     }
 
@@ -709,6 +725,10 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with chilling satellite views of the frozen continent and classified polar records: "${leadSynopsis.slice(0, 130)}...", establishing Antarctica's isolated mystery before uncovering anomalous structures.`
         : "Opens with chilling satellite views of the frozen continent and archival accounts from classified polar expeditions, establishing Antarctica's isolated mystery before exploring anomalous ancient structures.";
+      centralMystery =
+        "Why global superpowers strictly limit access under the Antarctic Treaty, and what anomalous heat signatures, ancient ice core maps, or suppressed historical records suggest about what exists beneath the ice sheet.";
+      payoff =
+        "An eye-opening breakdown into declassified polar exploration logs, radar-mapped subglacial anomalies, and alternative theories regarding prehistoric civilizations buried before the ice age.";
       break;
     }
 
@@ -721,6 +741,10 @@ function synthesizePackaging({
         `Featuring stern, shadowy historical portraiture accompanied by ${ocrDisplay}, the thumbnail sets a somber, high-stakes tone, promising a gritty, investigative deep-dive into how one family engineered unstoppable economic leverage.`;
       first30Seconds =
         "Opens with dramatic archival presentation and intense historical pacing, introducing John D. Rockefeller's rise from a con man's son to America's most powerful monopoly before setting up the central conflict of scandal and reinvention.";
+      centralMystery =
+        "How John D. Rockefeller orchestrated secret railroad rebates and anti-competitive buyouts to corner 90% of the world's refining capacity without government interference.";
+      payoff =
+        "An uncompromising exposé of the corporate blueprint used to create America's first billionaire and how the dynasty transitioned from ruthless monopolists into high-society philanthropists.";
       break;
     }
 
@@ -732,6 +756,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with staggering numbers and key financial milestones: "${leadSynopsis.slice(0, 130)}...", locking in viewer retention before examining how the fortune was amassed.`
         : "Opens with jaw-dropping numbers and visual comparisons illustrating the immense magnitude of wealth involved, locking in viewer retention before examining how the fortune was accumulated.";
+      centralMystery = `The hidden leverage, market monopolization, or financial mechanics that propelled ${cTitle} into astronomical net worth figures far beyond standard business success.`;
+      payoff = `A clear, data-driven financial breakdown demonstrating the compounding mechanisms, capital deployment, and lifestyle influence behind the massive fortune.`;
       break;
     }
 
@@ -743,6 +769,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with tense narration setting up the anomaly: "${leadSynopsis.slice(0, 130)}...", establishing high stakes before uncovering the controversial timeline.`
         : "Opens with tense, cinematic pacing and declassified archival logs or anomalous visual evidence, establishing high stakes before uncovering the controversial timeline.";
+      centralMystery = `The discrepancy between official public narratives and anomalous physical or archival evidence surrounding ${cTitle}.`;
+      payoff = `Uncovering hidden documents, witness testimony, or investigative findings that connect suppressed dots and reveal the concealed timeline.`;
       break;
     }
 
@@ -754,6 +782,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with high-stakes narration outlining the empire's zenith: "${leadSynopsis.slice(0, 130)}...", before introducing the internal tensions that threatened to tear it apart.`
         : `Opens with high-stakes narration and dramatic historical visual pacing, establishing the immense territorial and political scale of ${cTitle} before introducing the internal tensions that threatened to tear it apart.`;
+      centralMystery = `How ${cTitle} maintained generational control against fierce rivals, internal palace betrayals, and systemic economic strain before their eventual decline.`;
+      payoff = `A masterclass in realpolitik, showing the ruthless decisions, strategic alliances, and fatal blunders that decided the fate of the dynasty.`;
       break;
     }
 
@@ -765,6 +795,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Launches straight into the breakthrough capability: "${leadSynopsis.slice(0, 130)}...", demonstrating immediate utility before breaking down the underlying architecture.`
         : `Launches straight into a demonstration of the breakthrough capability, creating immediate visual impact before breaking down the underlying architecture and future stakes.`;
+      centralMystery = `Whether ${cTitle} can truly fulfill its disruptive promises, or if insurmountable technical hurdles and unintended consequences will derail its adoption.`;
+      payoff = `A lucid, forward-looking evaluation of the core capabilities, practical use cases, and strategic advantages needed to stay ahead of this technological shift.`;
       break;
     }
 
@@ -775,6 +807,8 @@ function synthesizePackaging({
       titleQuestion = `What is the exact counterintuitive method behind ${topicName} that actually delivers repeatable results?`;
       thumbnailMessage = `Pairing clean focal imagery with ${ocrDisplay}, the thumbnail communicates clarity, speed, and immediate real-world proof.`;
       first30Seconds = `Hooks viewers immediately by addressing the core obstacle in ${topicName}, demonstrating immediate stakes before introducing the step-by-step breakdown.`;
+      centralMystery = `Why conventional advice fails for most people attempting ${topicName}, and what specific mistake is silently sabotaging progress.`;
+      payoff = `A tested, step-by-step blueprint that eliminates guesswork and delivers tangible, predictable results.`;
       break;
     }
 
@@ -785,6 +819,8 @@ function synthesizePackaging({
       titleQuestion = `What is the counterintuitive truth about ${topicName} that challenges conventional wisdom?`;
       thumbnailMessage = `Uses ${ocrDisplay} and questioning body language to create instant tension, signaling a contrarian breakdown backed by real evidence.`;
       first30Seconds = `Challenges a widely held belief about ${topicName} within the first 10 seconds, creating instant cognitive dissonance before presenting the underlying evidence.`;
+      centralMystery = `The counterintuitive paradox where widely accepted common sense leads to negative outcomes regarding ${topicName}.`;
+      payoff = `A shift in perspective backed by evidence, equipping viewers with the correct mental model to avoid common pitfalls.`;
       break;
     }
 
@@ -794,6 +830,8 @@ function synthesizePackaging({
       titleQuestion = `Did it actually deliver on its extreme claims, or was it a complete disappointment?`;
       thumbnailMessage = `Presents high-energy, real-world visual proof with ${ocrDisplay}, promising genuine, unscripted results and entertaining trial by fire.`;
       first30Seconds = `Launches directly into the challenge setup with rapid-fire cuts and immediate stakes, establishing clear win-or-lose conditions before testing begins.`;
+      centralMystery = `Whether human endurance, unorthodox tactics, or the test condition will break first when pushed to the absolute breaking point.`;
+      payoff = `The definitive, unvarnished verdict on whether the challenge succeeded, complete with unexpected lessons and extreme highlights.`;
       break;
     }
 
@@ -803,6 +841,8 @@ function synthesizePackaging({
       titleQuestion = "Which contender truly dominates when tested under extreme real-world conditions?";
       thumbnailMessage = `Features a high-tension split-screen composition with ${ocrDisplay}, promising an uncompromising, head-to-head comparison.`;
       first30Seconds = "Presents the key contenders side-by-side with rapid benchmarks, building immediate suspense before the ultimate showdown test.";
+      centralMystery = `Which philosophy, design choice, or performance metric proves decisive when both contenders are stripped of marketing claims.`;
+      payoff = `An objective, head-to-head comparison revealing the superior option and exactly which one is worth your time and investment.`;
       break;
     }
 
@@ -817,6 +857,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with dramatic archival presentation setting up the central premise: "${leadSynopsis.slice(0, 130)}...", before introducing the high-stakes historical conflict.`
         : `Opens with cinematic archival footage and intense atmospheric narration, establishing the high-stakes historical context of ${cTitle} before introducing the central conflict.`;
+      centralMystery = `The concealed motives, covert operations, or overlooked pivotal events that determined the historical outcome of "${cTitle}".`;
+      payoff = `An immersive, cinematic synthesis that recontextualizes historical events and reveals their lingering influence on today's world.`;
       break;
     }
 
@@ -828,6 +870,8 @@ function synthesizePackaging({
       first30Seconds = leadSynopsis
         ? `Opens with a focused visual hook introducing "${leadSynopsis.slice(0, 130)}...", locking in viewer retention before unpacking the core premise.`
         : `Opens with an immediate hook framing the central premise of "${cTitle}", establishing rapid pacing and key visual points before exploring the broader story.`;
+      centralMystery = `The defining question or underlying conflict that "${cTitle}" promises to unpack.`;
+      payoff = `A compelling, well-substantiated conclusion that resolves the premise and delivers valuable insights to the viewer.`;
       break;
     }
   }
@@ -847,7 +891,7 @@ function synthesizePackaging({
     }
   }
 
-  return { clickTrigger, titleQuestion, thumbnailMessage, first30Seconds };
+  return { clickTrigger, titleQuestion, thumbnailMessage, first30Seconds, centralMystery, payoff };
 }
 
 // Fetch player details (synopsis, author, title, keywords) via Innertube Web client
@@ -1035,6 +1079,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       "1. clickTrigger: (string) What primarily drives the click? Specify 'Title and Thumbnail', 'Thumbnail (Visual Intrigue)', or 'Title (Curiosity Gap)' along with the psychological trigger.",
       "2. titleQuestion: (string) The single burning question or curiosity gap the title creates in a viewer's mind. Phrase it as one question the way a curious viewer would ask it, explicitly naming the key subject, stakes, or tension (e.g. 'How did the Rockefeller family amass unimaginable wealth and secretly build a dynasty that shaped modern America?'). Never return generic filler.",
       "3. thumbnailMessage: (string) What the thumbnail communicates visually in 1-2 detailed sentences. Specifically describe the visual subjects, attire, setting, quote any visible text on the image in quotes (e.g. 'AMERICAN OLIGARCH', 'RICHEST EVER', 'HUMAN CIVILIZATIONS'), describe the mood/tone (e.g. somber, gritty, sensational, high-stakes), and state the exact promise/premise made to the viewer.",
+      "4. centralMystery: (string) What is the central mystery or problem? State the core unresolved enigma, obstacle, or tension that the video frames in 1-2 clear, punchy sentences.",
+      "5. payoff: (string) What appears to be the payoff? State what the viewer expects to discover, learn, or experience by watching until the end in 1-2 clear, engaging sentences.",
       `Video title: "${data.title}"`,
       ocrText ? `Detected on-thumbnail text: "${ocrText}"` : "",
       playerDetails?.description ? `Video Synopsis & Context: "${playerDetails.description.slice(0, 500)}"` : "",
@@ -1082,6 +1128,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                   titleQuestion: parsed.data.titleQuestion,
                   thumbnailMessage: parsed.data.thumbnailMessage,
                   first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                  centralMystery: parsed.data.centralMystery || "",
+                  payoff: parsed.data.payoff || "",
                   analysisMode: "vision_ai",
                 };
               }
@@ -1131,6 +1179,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                     clickTrigger: { type: "string" },
                     titleQuestion: { type: "string" },
                     thumbnailMessage: { type: "string" },
+                    centralMystery: { type: "string" },
+                    payoff: { type: "string" },
                   },
                   required: ["titleQuestion", "thumbnailMessage"],
                   additionalProperties: false,
@@ -1154,6 +1204,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 titleQuestion: parsed.data.titleQuestion,
                 thumbnailMessage: parsed.data.thumbnailMessage,
                 first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                centralMystery: parsed.data.centralMystery || "",
+                payoff: parsed.data.payoff || "",
                 analysisMode: "vision_ai",
               };
             }
@@ -1202,6 +1254,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 titleQuestion: parsed.data.titleQuestion,
                 thumbnailMessage: parsed.data.thumbnailMessage,
                 first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                centralMystery: parsed.data.centralMystery || "",
+                payoff: parsed.data.payoff || "",
                 analysisMode: "vision_ai",
               };
             }
@@ -1230,6 +1284,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       titleQuestion: synth.titleQuestion,
       thumbnailMessage: synth.thumbnailMessage,
       first30Seconds: first30Seconds || synth.first30Seconds,
+      centralMystery: synth.centralMystery,
+      payoff: synth.payoff,
       analysisMode: "smart_metadata",
       aiNotice,
     };
