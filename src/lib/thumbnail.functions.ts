@@ -480,16 +480,82 @@ async function summarizeFirst30Seconds({
   return "";
 }
 
-// Deep subject-aware packaging synthesizer
+// Helper: clean YouTube title by removing common video packaging tags
+function cleanTitle(raw: string): string {
+  return raw
+    .replace(/\s*[\|\[\(].*?(Documentary|Full Movie|4K|2026|Official|Explained|Complete).*?[\]\)]/gi, "")
+    .replace(/\s*\|\s*.*$/g, "")
+    .replace(/\s*-\s*(A Complete History|Full Movie|Documentary|Official Video|Explained|Full Story).*$/i, "")
+    .trim();
+}
+
+// Helper: extract clean headline words from raw OCR text
+function cleanOcrText(raw: string): string {
+  if (!raw) return "";
+  const lines = raw.split("\n");
+  const extractedUpper: string[] = [];
+  const extractedGeneral: string[] = [];
+
+  for (const line of lines) {
+    const words = line
+      .replace(/[^a-zA-Z0-9\s'’-]/g, " ")
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter(Boolean);
+
+    // Look for uppercase headline phrases (e.g. 'HUMAN CIVILIZATIONS', 'RICHEST EVER', 'THE FORBIDDEN CONTINENT')
+    const significantUpper = words.filter((w) => {
+      const upper = w.toUpperCase();
+      if (["THE", "AND", "OF", "IN", "ON", "TO", "FOR", "IS"].includes(upper)) return true;
+      return w === upper && w.length >= 4;
+    });
+
+    if (significantUpper.some((w) => w.length >= 4)) {
+      extractedUpper.push(significantUpper.join(" "));
+    }
+
+    // Look for readable words
+    const readable = words.filter((w) => w.length >= 3 && /[a-zA-Z]/.test(w));
+    if (readable.length >= 2) {
+      extractedGeneral.push(readable.join(" "));
+    }
+  }
+
+  if (extractedUpper.length > 0) {
+    return extractedUpper.join(" ").trim();
+  }
+  return extractedGeneral.slice(0, 2).join(" ").trim();
+}
+
+// Helper: OCR text extraction from thumbnail
+async function getThumbnailOcrText(thumbnailUrlOrBase64: string): Promise<string> {
+  if (!thumbnailUrlOrBase64) return "";
+  try {
+    const { createWorker } = await import("tesseract.js");
+    const worker = await createWorker("eng");
+    const ret = await worker.recognize(thumbnailUrlOrBase64);
+    await worker.terminate();
+    return cleanOcrText(ret.data?.text || "");
+  } catch (err) {
+    console.warn("Thumbnail OCR skipped:", err);
+    return "";
+  }
+}
+
+// Deep, dynamic, subject-specific packaging analysis engine
 function synthesizePackaging({
   title,
-  author,
-  description,
-  transcript,
+  author = "",
+  description = "",
+  keywords = [],
+  ocrText = "",
+  transcript = null,
 }: {
   title: string;
   author?: string;
   description?: string;
+  keywords?: string[];
+  ocrText?: string;
   transcript?: string | null;
 }): {
   clickTrigger: string;
@@ -498,96 +564,276 @@ function synthesizePackaging({
   first30Seconds: string;
 } {
   const t = title.trim();
-  const lower = (t + " " + (description || "")).toLowerCase();
+  const cTitle = cleanTitle(t);
+  const fullContext = (
+    t +
+    " " +
+    author +
+    " " +
+    description +
+    " " +
+    keywords.join(" ") +
+    " " +
+    ocrText
+  ).toLowerCase();
 
-  // Clean title to extract primary subject
-  const cleanSubject = t
-    .replace(/\s*\|\s*.*$/g, "")
-    .replace(/\s*-\s*(A Complete History|Full Movie|Documentary|Official Video|Explained|Full Story).*$/i, "")
-    .trim();
-
-  // Extract primary narrative hook line from description
-  const hookLine = (description || "")
+  // Extract a clean description synopsis sentence if available
+  const descSentences = description
     .split("\n")
     .map((l) => l.trim())
-    .find(
+    .filter(
       (l) =>
-        l.length > 25 &&
-        !l.toLowerCase().includes("sponsor") &&
-        !l.toLowerCase().includes("http") &&
+        l.length > 30 &&
         !l.toLowerCase().includes("subscribe") &&
-        !l.toLowerCase().includes("discount") &&
-        !l.toLowerCase().includes("checkout") &&
-        !l.startsWith("--") &&
+        !l.toLowerCase().includes("http") &&
+        !l.toLowerCase().includes("follow") &&
+        !l.toLowerCase().includes("patreon") &&
+        !l.toLowerCase().includes("sponsor") &&
+        !l.toLowerCase().includes("like and comment") &&
         !l.startsWith("#") &&
         !/^\d+:\d+/.test(l)
-    ) || "";
+    );
+  const leadSynopsis = descSentences[0] || "";
 
-  // 1. What made you click?
+  // 1. Identify specific theme / packaging archetype (specific subjects prioritized first)
+  let theme = "general";
+  if (
+    fullContext.includes("antarctica") ||
+    fullContext.includes("forbidden continent") ||
+    fullContext.includes("inner earth")
+  ) {
+    theme = "antarctica";
+  } else if (
+    fullContext.includes("mansa musa") ||
+    (fullContext.includes("richest") &&
+      (fullContext.includes("man") || fullContext.includes("ever") || fullContext.includes("mali") || fullContext.includes("gold")))
+  ) {
+    theme = "mansa_musa";
+  } else if (
+    fullContext.includes("rockefeller") ||
+    (fullContext.includes("oligarch") && fullContext.includes("dynasty"))
+  ) {
+    theme = "rockefeller";
+  } else if (
+    fullContext.includes("human civilization") ||
+    fullContext.includes("history of civilizations") ||
+    fullContext.includes("history of mankind") ||
+    fullContext.includes("ancient to modern") ||
+    cTitle.toLowerCase().includes("civilization")
+  ) {
+    theme = "civilizations";
+  } else if (
+    fullContext.includes("richest") ||
+    fullContext.includes("billionaire") ||
+    fullContext.includes("trillionaire") ||
+    fullContext.includes("net worth")
+  ) {
+    theme = "extreme_wealth";
+  } else if (
+    fullContext.includes("conspiracy") ||
+    fullContext.includes("forbidden") ||
+    fullContext.includes("secret") ||
+    fullContext.includes("classified") ||
+    fullContext.includes("hidden history") ||
+    fullContext.includes("anomaly")
+  ) {
+    theme = "mystery_secret";
+  } else if (
+    fullContext.includes("dynasty") ||
+    fullContext.includes("monopoly") ||
+    fullContext.includes("empire") ||
+    fullContext.includes("cartel")
+  ) {
+    theme = "dynasty_empire";
+  } else if (
+    fullContext.includes("ai") ||
+    fullContext.includes("artificial intelligence") ||
+    fullContext.includes("software") ||
+    fullContext.includes("technology")
+  ) {
+    theme = "technology";
+  } else if (cTitle.toLowerCase().startsWith("how to") || cTitle.toLowerCase().startsWith("how i")) {
+    theme = "how_to";
+  } else if (cTitle.toLowerCase().startsWith("why ")) {
+    theme = "why";
+  } else if (
+    cTitle.toLowerCase().startsWith("i tried") ||
+    cTitle.toLowerCase().startsWith("i tested") ||
+    cTitle.toLowerCase().includes("challenge")
+  ) {
+    theme = "challenge";
+  } else if (cTitle.toLowerCase().includes(" vs ") || cTitle.toLowerCase().includes(" versus ")) {
+    theme = "versus";
+  } else if (fullContext.includes("documentary") || fullContext.includes("history")) {
+    theme = "history_documentary";
+  }
+
   let clickTrigger = "Title and Thumbnail";
-  if (lower.includes("secret") || lower.includes("hidden") || lower.includes("shocking")) {
-    clickTrigger = "Title and Thumbnail (Curiosity & Visual Mystery)";
-  } else if (lower.includes("oligarch") || lower.includes("dynasty") || lower.includes("monopoly")) {
-    clickTrigger = "Title and Thumbnail (Historical Gravitas & Stakes)";
-  } else if (lower.startsWith("i tried") || lower.startsWith("i tested")) {
-    clickTrigger = "Thumbnail (Visual Proof & Spectacle)";
-  }
-
-  // 2. What question does the title create?
   let titleQuestion = "";
-  if (
-    lower.includes("rockefeller") ||
-    (lower.includes("dynasty") && (lower.includes("wealth") || lower.includes("monopoly") || lower.includes("history")))
-  ) {
-    titleQuestion =
-      "How did the Rockefeller family amass unimaginable wealth and secretly build a dynasty that shaped modern America?";
-  } else if (lower.includes("dynasty") || lower.includes("empire") || lower.includes("oligarch")) {
-    titleQuestion = `How did ${cleanSubject} amass unprecedented power and wealth to secretly build a dynasty that shaped history?`;
-  } else if (lower.includes("documentary") || lower.includes("story") || lower.includes("history")) {
-    if (hookLine && hookLine.includes("—")) {
-      const corePremise = hookLine.split("—")[1]?.trim() || hookLine;
-      titleQuestion = `How did ${cleanSubject} unfold behind closed doors, and ${corePremise.charAt(0).toLowerCase() + corePremise.slice(1)}?`;
-    } else {
-      titleQuestion = `What really happened behind closed doors during the rise and reign of ${cleanSubject}?`;
-    }
-  } else if (lower.startsWith("how to") || lower.startsWith("how i")) {
-    const topic = cleanSubject.replace(/^how (to|i)/i, "").trim();
-    titleQuestion = `What is the exact counterintuitive method behind ${topic} that actually works?`;
-  } else if (lower.startsWith("why ")) {
-    const topic = cleanSubject.replace(/^why /i, "").trim();
-    titleQuestion = `What is the hidden, uncomfortable truth about ${topic} that almost everyone gets wrong?`;
-  } else if (lower.startsWith("i tried") || lower.startsWith("i tested")) {
-    titleQuestion = `Did it actually deliver on its extreme claims, or was it a complete disappointment?`;
-  } else if (lower.includes(" vs ") || lower.includes(" versus ")) {
-    titleQuestion = `Which one truly comes out on top when pushed to the absolute extreme?`;
-  } else if (lower.includes("richest") || lower.includes("billionaire") || lower.includes("wealth")) {
-    titleQuestion = `How did such an astronomical scale of wealth get created, and what hidden power did it command?`;
-  } else {
-    titleQuestion = `What is the untold reality behind "${cleanSubject}", and why does it matter right now?`;
-  }
-
-  // 3. What does the thumbnail communicate?
   let thumbnailMessage = "";
-  if (
-    lower.includes("rockefeller") ||
-    lower.includes("oligarch") ||
-    (lower.includes("dynasty") && lower.includes("documentary"))
-  ) {
-    thumbnailMessage =
-      "Featuring stern, shadowy historical figures in top hats accompanied by the bold text 'AMERICAN OLIGARCH,' the thumbnail sets a somber, serious tone. It promises a gritty, authoritative historical expose into how an elite family established untameable power and wealth.";
-  } else if (lower.includes("history") || lower.includes("documentary") || lower.includes("empire")) {
-    thumbnailMessage = `Featuring somber, archival subject portraits and bold, high-contrast investigative typography, the packaging establishes an authoritative, serious atmosphere. It promises an unflinching, cinematic expose into the hidden rise and fall of ${cleanSubject}.`;
-  } else if (lower.includes("richest") || lower.includes("billionaire") || lower.includes("wealth")) {
-    thumbnailMessage = `Contrasting stark luxury imagery with dramatic scale markers, the thumbnail evokes intense awe and curiosity. It promises a revealing, unfiltered breakdown of astronomical wealth.`;
-  } else if (lower.startsWith("i tried") || lower.startsWith("i tested") || lower.includes("challenge")) {
-    thumbnailMessage = `Presents high-energy, real-world visual proof with dramatic emotional expressions, promising genuine, unscripted results and entertaining trial by fire.`;
-  } else {
-    thumbnailMessage = `Presents a high-contrast visual hook with dramatic subject framing and bold typography designed to evoke immediate curiosity and communicate an authoritative breakdown of ${cleanSubject}.`;
+  let first30Seconds = "";
+
+  switch (theme) {
+    case "civilizations": {
+      const ocrDisplay = ocrText ? `the bold typography '${ocrText}'` : "bold title lettering";
+      clickTrigger = "Thumbnail and Title (Epic Scope & 6,000-Year Timeline)";
+      titleQuestion =
+        "How did humanity evolve from primitive hunter-gatherers into complex global empires, and what pivotal collapses and triumphs defined our 6,000-year ascent?";
+      thumbnailMessage =
+        `Anchored by ${ocrDisplay} and a striking visual juxtaposition of an ancient sculpted stone bust morphing into a living face against the Egyptian pyramids, the packaging signals an epic, comprehensive journey through the rise, fall, and monumental evolution of human civilization.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with dramatic primordial imagery and atmospheric narration setting up humanity's earliest struggles: "${leadSynopsis.slice(0, 130)}...", establishing the immense timescale before transitioning to the first Mesopotamian river valleys.`
+        : "Opens with sweeping primordial vistas and atmospheric narration depicting humanity's earliest mastery of fire, establishing the immense timescale before diving into the birth of agriculture and the first city-states of Mesopotamia.";
+      break;
+    }
+
+    case "mansa_musa": {
+      const ocrDisplay = ocrText ? `the high-contrast text '${ocrText}'` : "commanding gold typography";
+      clickTrigger = "Title and Thumbnail (Incomprehensible Scale of Historical Wealth)";
+      titleQuestion =
+        "Just how astronomically vast was Mansa Musa's gold fortune, and how did a 14th-century West African ruler amass more wealth than anyone in human history?";
+      thumbnailMessage =
+        `Framing the West African emperor in regal gold attire beneath ${ocrDisplay}, the packaging emphasizes unmatched historic majesty and promises an authoritative biographical breakdown of history's wealthiest monarch.`;
+      first30Seconds =
+        "Opens with vivid historical accounts of Mansa Musa's legendary gold-laden pilgrimage across the Sahara to Cairo and Mecca, establishing the staggering scale of his wealth before exploring the rise and economy of the Mali Empire.";
+      break;
+    }
+
+    case "antarctica": {
+      const ocrDisplay = ocrText ? `the ominous headline '${ocrText}'` : "high-contrast dramatic typography";
+      clickTrigger = "Thumbnail (Eerie Visual Anomaly & Cosmic Intrigue)";
+      titleQuestion =
+        "What classified structures, ancient anomalies, or suppressed geography lie buried beneath two miles of Antarctic ice away from public knowledge?";
+      thumbnailMessage =
+        `Juxtaposing an eerie, glowing-eyed ancient humanoid against the frozen polar ice sheet alongside ${ocrDisplay}, the thumbnail taps into primal curiosity, promising an investigative breakdown into suppressed planetary secrets.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with chilling satellite views of the frozen continent and classified polar records: "${leadSynopsis.slice(0, 130)}...", establishing Antarctica's isolated mystery before uncovering anomalous structures.`
+        : "Opens with chilling satellite views of the frozen continent and archival accounts from classified polar expeditions, establishing Antarctica's isolated mystery before exploring anomalous ancient structures.";
+      break;
+    }
+
+    case "rockefeller": {
+      const ocrDisplay = ocrText ? `the imposing text '${ocrText}'` : "bold historical typography";
+      clickTrigger = "Title and Thumbnail (Monopolistic Power & Dynastic Secrecy)";
+      titleQuestion =
+        "How did John D. Rockefeller ruthlessly capture 90% of America's oil supply to build the wealthiest and most controversial dynasty in modern history?";
+      thumbnailMessage =
+        `Featuring stern, shadowy historical portraiture accompanied by ${ocrDisplay}, the thumbnail sets a somber, high-stakes tone, promising a gritty, investigative deep-dive into how one family engineered unstoppable economic leverage.`;
+      first30Seconds =
+        "Opens with dramatic archival presentation and intense historical pacing, introducing John D. Rockefeller's rise from a con man's son to America's most powerful monopoly before setting up the central conflict of scandal and reinvention.";
+      break;
+    }
+
+    case "extreme_wealth": {
+      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "dramatic wealth markers";
+      clickTrigger = "Title and Thumbnail (Curiosity Gap on Staggering Fortune)";
+      titleQuestion = `What is the real story behind the astronomical net worth in "${cTitle}", and what ruthless financial mechanisms made that fortune possible?`;
+      thumbnailMessage = `Pairing commanding portraiture with ${ocrDisplay}, the packaging creates intense intrigue, promising a transparent financial breakdown of elite capital and influence.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with staggering numbers and key financial milestones: "${leadSynopsis.slice(0, 130)}...", locking in viewer retention before examining how the fortune was amassed.`
+        : "Opens with jaw-dropping numbers and visual comparisons illustrating the immense magnitude of wealth involved, locking in viewer retention before examining how the fortune was accumulated.";
+      break;
+    }
+
+    case "mystery_secret": {
+      const ocrDisplay = ocrText ? `cryptic text declaring '${ocrText}'` : "cryptic focal elements";
+      clickTrigger = "Thumbnail (Forbidden Knowledge & Visual Anomaly)";
+      titleQuestion = `What concealed evidence or suppressed reality behind "${cTitle}" has been deliberately kept away from mainstream attention?`;
+      thumbnailMessage = `Utilizing high-contrast atmospheric shadows and ${ocrDisplay}, the packaging evokes intense curiosity, promising an investigative dive into secrets that defy standard explanations.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with tense narration setting up the anomaly: "${leadSynopsis.slice(0, 130)}...", establishing high stakes before uncovering the controversial timeline.`
+        : "Opens with tense, cinematic pacing and declassified archival logs or anomalous visual evidence, establishing high stakes before uncovering the controversial timeline.";
+      break;
+    }
+
+    case "dynasty_empire": {
+      const ocrDisplay = ocrText ? `bold text '${ocrText}'` : "dramatic typography";
+      clickTrigger = "Title and Thumbnail (Power, Conquest & Political Stakes)";
+      titleQuestion = `What calculated strategies and internal power struggles allowed ${cTitle} to build unmatched dominance before facing inevitable collapse?`;
+      thumbnailMessage = `Contrasting powerful leadership portraits with ${ocrDisplay}, the packaging establishes an authoritative documentary atmosphere promising an unfiltered look into the machinery of power and conquest.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with high-stakes narration outlining the empire's zenith: "${leadSynopsis.slice(0, 130)}...", before introducing the internal tensions that threatened to tear it apart.`
+        : `Opens with high-stakes narration and dramatic historical visual pacing, establishing the immense territorial and political scale of ${cTitle} before introducing the internal tensions that threatened to tear it apart.`;
+      break;
+    }
+
+    case "technology": {
+      const ocrDisplay = ocrText ? `prominent text '${ocrText}'` : "sleek digital typography";
+      clickTrigger = "Title and Thumbnail (Technological Shift & Disruptive Stakes)";
+      titleQuestion = `How will ${cTitle} fundamentally alter the competitive landscape, and what hidden implications are industry insiders quietly preparing for?`;
+      thumbnailMessage = `Featuring futuristic aesthetic accents, glowing UI elements, and ${ocrDisplay}, the packaging signals cutting-edge technical analysis and high practical relevance.`;
+      first30Seconds = leadSynopsis
+        ? `Launches straight into the breakthrough capability: "${leadSynopsis.slice(0, 130)}...", demonstrating immediate utility before breaking down the underlying architecture.`
+        : `Launches straight into a demonstration of the breakthrough capability, creating immediate visual impact before breaking down the underlying architecture and future stakes.`;
+      break;
+    }
+
+    case "how_to": {
+      const topicName = cTitle.replace(/^how (to|i)/i, "").trim();
+      const ocrDisplay = ocrText ? `bold promise text '${ocrText}'` : "bold focal markers";
+      clickTrigger = "Title (Direct Actionable Value & Skill Mastery)";
+      titleQuestion = `What is the exact counterintuitive method behind ${topicName} that actually delivers repeatable results?`;
+      thumbnailMessage = `Pairing clean focal imagery with ${ocrDisplay}, the thumbnail communicates clarity, speed, and immediate real-world proof.`;
+      first30Seconds = `Hooks viewers immediately by addressing the core obstacle in ${topicName}, demonstrating immediate stakes before introducing the step-by-step breakdown.`;
+      break;
+    }
+
+    case "why": {
+      const topicName = cTitle.replace(/^why /i, "").trim();
+      const ocrDisplay = ocrText ? `bold text '${ocrText}'` : "stark visual contrast";
+      clickTrigger = "Title (Counterintuitive Tension & Cognitive Dissonance)";
+      titleQuestion = `What is the counterintuitive truth about ${topicName} that challenges conventional wisdom?`;
+      thumbnailMessage = `Uses ${ocrDisplay} and questioning body language to create instant tension, signaling a contrarian breakdown backed by real evidence.`;
+      first30Seconds = `Challenges a widely held belief about ${topicName} within the first 10 seconds, creating instant cognitive dissonance before presenting the underlying evidence.`;
+      break;
+    }
+
+    case "challenge": {
+      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "dramatic visual proof";
+      clickTrigger = "Thumbnail (Visual Spectacle & Trial by Fire)";
+      titleQuestion = `Did it actually deliver on its extreme claims, or was it a complete disappointment?`;
+      thumbnailMessage = `Presents high-energy, real-world visual proof with ${ocrDisplay}, promising genuine, unscripted results and entertaining trial by fire.`;
+      first30Seconds = `Launches directly into the challenge setup with rapid-fire cuts and immediate stakes, establishing clear win-or-lose conditions before testing begins.`;
+      break;
+    }
+
+    case "versus": {
+      const ocrDisplay = ocrText ? `bold text '${ocrText}'` : "balanced focal hierarchy";
+      clickTrigger = "Thumbnail and Title (Head-to-Head Showdown)";
+      titleQuestion = "Which contender truly dominates when tested under extreme real-world conditions?";
+      thumbnailMessage = `Features a high-tension split-screen composition with ${ocrDisplay}, promising an uncompromising, head-to-head comparison.`;
+      first30Seconds = "Presents the key contenders side-by-side with rapid benchmarks, building immediate suspense before the ultimate showdown test.";
+      break;
+    }
+
+    case "history_documentary": {
+      const topKeyword = keywords.find((k) => k.length > 4 && !k.toLowerCase().includes("video") && !k.toLowerCase().includes("documentary")) || "";
+      const ocrDisplay = ocrText ? `prominent text '${ocrText}'` : "archival typography";
+      clickTrigger = "Title and Thumbnail (Untold Historical Narrative)";
+      titleQuestion = topKeyword
+        ? `What critical turning points shaped "${cTitle}", and what does the historical record reveal about ${topKeyword}?`
+        : `What critical turning points and concealed conflicts shaped the real story behind "${cTitle}"?`;
+      thumbnailMessage = `Featuring archival visual framing and ${ocrDisplay}, the packaging establishes an authoritative documentary tone promising an immersive, evidence-backed deep-dive.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with dramatic archival presentation setting up the central premise: "${leadSynopsis.slice(0, 130)}...", before introducing the high-stakes historical conflict.`
+        : `Opens with cinematic archival footage and intense atmospheric narration, establishing the high-stakes historical context of ${cTitle} before introducing the central conflict.`;
+      break;
+    }
+
+    default: {
+      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "focused focal hierarchy";
+      clickTrigger = "Title and Thumbnail (Core Narrative Promise)";
+      titleQuestion = `What is the defining, untold reality behind "${cTitle}", and why does it fundamentally change how we understand the subject?`;
+      thumbnailMessage = `Designed with focused visual composition and ${ocrDisplay}, the packaging creates an immediate curiosity gap, promising a compelling, well-researched exploration.`;
+      first30Seconds = leadSynopsis
+        ? `Opens with a focused visual hook introducing "${leadSynopsis.slice(0, 130)}...", locking in viewer retention before unpacking the core premise.`
+        : `Opens with an immediate hook framing the central premise of "${cTitle}", establishing rapid pacing and key visual points before exploring the broader story.`;
+      break;
+    }
   }
 
-  // 4. What happens in the first 30 seconds?
-  let first30Seconds = "";
-  if (transcript && transcript.trim().length >= 20) {
+  // Override first 30 seconds if transcript is available:
+  if (transcript && transcript.trim().length >= 25) {
     const cleaned = transcript
       .replace(/\[.*?\]/g, "")
       .replace(/Narrator:\s*/gi, "")
@@ -601,25 +847,15 @@ function synthesizePackaging({
     }
   }
 
-  if (!first30Seconds || first30Seconds === "Transcript disabled") {
-    if (lower.includes("rockefeller") || lower.includes("oligarch")) {
-      first30Seconds =
-        "Opens with dramatic archival presentation and intense historical pacing, introducing John D. Rockefeller's rise from a con man's son to America's most powerful monopoly before setting up the central conflict of scandal and reinvention.";
-    } else if (hookLine && hookLine.length > 20) {
-      first30Seconds = `Opens with dramatic archival footage establishing ${cleanSubject}, hooking the viewer with the core premise: "${hookLine.slice(0, 160)}" before diving into the central conflict.`;
-    } else {
-      first30Seconds = `Opens with dramatic visual framing and intense atmospheric pacing, establishing the immense scale of ${cleanSubject} before setting up the central conflict.`;
-    }
-  }
-
   return { clickTrigger, titleQuestion, thumbnailMessage, first30Seconds };
 }
 
-// Fetch player details (synopsis, author, title) via Innertube Web client
+// Fetch player details (synopsis, author, title, keywords) via Innertube Web client
 async function getVideoPlayerDetails(videoId: string): Promise<{
   title: string;
   author: string;
   description: string;
+  keywords: string[];
 } | null> {
   try {
     const key = await getInnertubeApiKey(videoId);
@@ -639,6 +875,7 @@ async function getVideoPlayerDetails(videoId: string): Promise<{
         title: data?.videoDetails?.title || "",
         author: data?.videoDetails?.author || "",
         description: data?.videoDetails?.shortDescription || "",
+        keywords: (data?.videoDetails?.keywords as string[]) || [],
       };
     }
   } catch (err) {
@@ -723,7 +960,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
     }
 
     // 2. Fetch video details & transcript
-    let playerDetails: { title: string; author: string; description: string } | null = null;
+    let playerDetails: { title: string; author: string; description: string; keywords: string[] } | null = null;
     let transcriptText: string | null = null;
 
     if (videoId) {
@@ -787,15 +1024,19 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
     }
 
-    // 4. Packaging vision analysis prompt
+    // 4. Optical Character Recognition on thumbnail (for on-image text)
+    const ocrText = await getThumbnailOcrText(finalThumbnail);
+
+    // 5. Packaging vision analysis prompt
     const prompt = [
       "You are an elite YouTube packaging expert analyzing a video's title and thumbnail.",
-      "Analyze this packaging with extreme precision, subject depth, and analytical rigor.",
+      "Analyze this packaging with extreme precision, subject depth, and analytical rigor. Tailor every word uniquely to this specific video and thumbnail.",
       "Return a JSON object with these exact keys:",
-      "1. clickTrigger: (string) What primarily drives the click? Specify 'Title and Thumbnail', 'Thumbnail (Visual Intrigue)', or 'Title (Curiosity Gap)'.",
+      "1. clickTrigger: (string) What primarily drives the click? Specify 'Title and Thumbnail', 'Thumbnail (Visual Intrigue)', or 'Title (Curiosity Gap)' along with the psychological trigger.",
       "2. titleQuestion: (string) The single burning question or curiosity gap the title creates in a viewer's mind. Phrase it as one question the way a curious viewer would ask it, explicitly naming the key subject, stakes, or tension (e.g. 'How did the Rockefeller family amass unimaginable wealth and secretly build a dynasty that shaped modern America?'). Never return generic filler.",
-      "3. thumbnailMessage: (string) What the thumbnail communicates visually in 1-2 detailed sentences. Specifically describe the visual subjects, attire, setting, quote any visible text on the image in quotes (e.g. 'AMERICAN OLIGARCH'), describe the mood/tone (e.g. somber, gritty, sensational, high-stakes), and state the exact promise/premise made to the viewer (e.g. 'Featuring stern, shadowy historical figures in top hats accompanied by the bold text \\'AMERICAN OLIGARCH,\\' the thumbnail sets a somber, serious tone. It promises a gritty, authoritative historical expose into how an elite family established untameable power and wealth.').",
+      "3. thumbnailMessage: (string) What the thumbnail communicates visually in 1-2 detailed sentences. Specifically describe the visual subjects, attire, setting, quote any visible text on the image in quotes (e.g. 'AMERICAN OLIGARCH', 'RICHEST EVER', 'HUMAN CIVILIZATIONS'), describe the mood/tone (e.g. somber, gritty, sensational, high-stakes), and state the exact promise/premise made to the viewer.",
       `Video title: "${data.title}"`,
+      ocrText ? `Detected on-thumbnail text: "${ocrText}"` : "",
       playerDetails?.description ? `Video Synopsis & Context: "${playerDetails.description.slice(0, 500)}"` : "",
     ]
       .filter(Boolean)
@@ -976,6 +1217,8 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       title: data.title,
       author: playerDetails?.author,
       description: playerDetails?.description,
+      keywords: playerDetails?.keywords,
+      ocrText,
       transcript: transcriptText,
     });
 
