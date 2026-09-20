@@ -401,6 +401,13 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
     if (reports.length === 0) return;
     try {
       const XLSX = await import("xlsx");
+      const utils = XLSX.utils || (XLSX as any).default?.utils;
+      const write = XLSX.write || (XLSX as any).default?.write;
+
+      if (!utils || !write) {
+        throw new Error("Excel export utilities not available in this environment.");
+      }
+
       const data = reports.map((r, index) => ({
         "No.": index + 1,
         "Video Title": r.title || "",
@@ -414,7 +421,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
         "Analysis Mode": r.analysisMode === "vision_ai" ? "Vision AI" : "Rule Engine",
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(data);
+      const worksheet = utils.json_to_sheet(data);
 
       worksheet["!cols"] = [
         { wch: 6 },
@@ -429,9 +436,24 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
         { wch: 16 },
       ];
 
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Packaging Analysis");
-      XLSX.writeFile(workbook, `packaging_analysis_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const workbook = utils.book_new();
+      utils.book_append_sheet(workbook, worksheet, "Packaging Analysis");
+
+      // Generate binary Excel array buffer and download via browser Blob
+      const excelBuffer = write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const fileName = `packaging_analysis_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Failed to export Excel file. Please use Export to CSV instead.");
