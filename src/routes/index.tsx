@@ -2,7 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useState, useEffect, type FormEvent } from "react";
-import { AlertCircle, ImagePlus, KeyRound, Loader2, Play, Search, X } from "lucide-react";
+import {
+  AlertCircle,
+  Download,
+  ImagePlus,
+  KeyRound,
+  LayoutGrid,
+  Loader2,
+  Play,
+  Search,
+  Sparkles,
+  Table as TableIcon,
+  X,
+} from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import {
   analyzeThumbnail,
@@ -329,8 +341,39 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
   const [thumb, setThumb] = useState<string | null>(null);
   const [reports, setReports] = useState<ThumbnailReport[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(false);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const run = useServerFn(analyzeThumbnail);
   const getMeta = useServerFn(fetchVideoMetadata);
+
+  function exportToCsv() {
+    if (reports.length === 0) return;
+    const headers = [
+      "Thumbnail",
+      "What made you click?",
+      "What question does the title create?",
+      "What does the thumbnail communicate?",
+      "What happens in the first 30 seconds?",
+    ];
+    const csvRows = [
+      headers.join(","),
+      ...reports.map((r) =>
+        [
+          `"${(r.thumbnail || "").replace(/"/g, '""')}"`,
+          `"${(r.clickTrigger || "Title and Thumbnail").replace(/"/g, '""')}"`,
+          `"${(r.titleQuestion || "").replace(/"/g, '""')}"`,
+          `"${(r.thumbnailMessage || "").replace(/"/g, '""')}"`,
+          `"${(r.first30Seconds || "").replace(/"/g, '""')}"`,
+        ].join(",")
+      ),
+    ];
+    const blob = new Blob(["\uFEFF" + csvRows.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `packaging_analysis_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   const mutation = useMutation({
     mutationFn: (input: { title: string; thumbnail: string; videoUrl?: string }) =>
@@ -422,7 +465,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
           Test your packaging before you publish.
         </h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          Enter a video title and upload its thumbnail to see the question the title creates,
+          Enter a video title and link or thumbnail to see what made viewers click, the question the title creates,
           what the thumbnail communicates, and what happens in the first 30 seconds.
         </p>
 
@@ -538,36 +581,201 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
         </form>
 
         {reports.length > 0 && (
-          <div className="mt-8 flex flex-col gap-4">
-            {reports.map((r, i) => (
-              <article
-                key={`${r.title}-${i}`}
-                className="flex flex-col gap-4 rounded-lg border border-border bg-secondary/30 p-4 sm:flex-row"
-              >
-                <img
-                  src={r.thumbnail}
-                  alt={`Thumbnail for ${r.title}`}
-                  className="h-32 w-full rounded-md object-cover sm:w-56"
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-medium">{r.title}</h3>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Question the title creates
-                  </p>
-                  <p className="mt-1 text-sm">{r.titleQuestion}</p>
-                  
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    What the thumbnail communicates
-                  </p>
-                  <p className="mt-1 text-sm">{r.thumbnailMessage}</p>
+          <div className="mt-10 flex flex-col gap-4">
+            {/* Header & View Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold tracking-tight">
+                  Packaging Reports ({reports.length})
+                </h3>
+              </div>
 
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    What happens in the first 30 seconds
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed">{r.first30Seconds}</p>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
+                  <Button
+                    type="button"
+                    variant={viewMode === "cards" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("cards")}
+                    className="h-7 text-xs px-2.5 gap-1.5 cursor-pointer"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    Cards
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={viewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("table")}
+                    className="h-7 text-xs px-2.5 gap-1.5 cursor-pointer"
+                  >
+                    <TableIcon className="h-3.5 w-3.5" />
+                    Spreadsheet
+                  </Button>
                 </div>
-              </article>
-            ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToCsv}
+                  className="h-8 text-xs gap-1.5 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export to CSV
+                </Button>
+              </div>
+            </div>
+
+            {/* Cards View */}
+            {viewMode === "cards" && (
+              <div className="flex flex-col gap-4">
+                {reports.map((r, i) => (
+                  <article
+                    key={`${r.title}-${i}`}
+                    className="flex flex-col gap-5 rounded-lg border border-border bg-secondary/30 p-4 sm:p-5 sm:flex-row"
+                  >
+                    <div className="shrink-0 sm:w-60">
+                      <img
+                        src={r.thumbnail}
+                        alt={`Thumbnail for ${r.title}`}
+                        className="h-36 w-full rounded-md object-cover border border-border/80 shadow-sm"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="font-bold text-base sm:text-lg leading-snug">{r.title}</h3>
+                        {r.analysisMode === "vision_ai" ? (
+                          <Badge
+                            variant="secondary"
+                            className="bg-primary/15 text-primary border-primary/30 text-[10px] gap-1 py-0.5 shrink-0"
+                          >
+                            <Sparkles className="h-3 w-3" /> Vision AI
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground text-[10px] py-0.5 shrink-0">
+                            Deep Packaging Analysis
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* What made you click? */}
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          What made you click?
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold text-primary">
+                          {r.clickTrigger || "Title and Thumbnail"}
+                        </p>
+                      </div>
+
+                      {/* Question the title creates */}
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Question the title creates
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium leading-relaxed text-foreground">
+                          {r.titleQuestion}
+                        </p>
+                      </div>
+
+                      {/* What the thumbnail communicates */}
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          What does the thumbnail communicate?
+                        </p>
+                        <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                          {r.thumbnailMessage}
+                        </p>
+                      </div>
+
+                      {/* What happens in the first 30 seconds */}
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          What happens in the first 30 seconds
+                        </p>
+                        <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                          {r.first30Seconds}
+                        </p>
+                      </div>
+
+                      {r.aiNotice && (
+                        <div className="mt-4 flex items-start justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
+                          <span>{r.aiNotice}</span>
+                          {onOpenKeyModal && (
+                            <button
+                              type="button"
+                              onClick={onOpenKeyModal}
+                              className="shrink-0 font-semibold underline underline-offset-2 hover:opacity-80"
+                            >
+                              Configure
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {/* Spreadsheet Table View (Matching Excel Reference) */}
+            {viewMode === "table" && (
+              <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+                <table className="w-full min-w-[1000px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/60">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-48">
+                        Thumbnail
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-44">
+                        What made you click?
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-64">
+                        What question does the title create?
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        What does the thumbnail communicate?
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-72">
+                        What happens in the first 30 seconds?
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((r, i) => (
+                      <tr
+                        key={`${r.title}-${i}`}
+                        className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                      >
+                        <td className="px-4 py-3.5 align-top">
+                          <img
+                            src={r.thumbnail}
+                            alt={`Thumbnail for ${r.title}`}
+                            className="h-20 w-32 rounded-md object-cover border border-border/80 shadow-sm"
+                          />
+                          <p className="mt-1.5 line-clamp-2 text-xs font-medium text-foreground/90 max-w-[130px]">
+                            {r.title}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5 align-top font-semibold text-primary text-xs leading-relaxed">
+                          {r.clickTrigger || "Title and Thumbnail"}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-xs leading-relaxed font-medium text-foreground">
+                          {r.titleQuestion}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-xs leading-relaxed text-muted-foreground">
+                          {r.thumbnailMessage}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-xs leading-relaxed text-muted-foreground">
+                          {r.first30Seconds}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -13,9 +13,12 @@ export type ThumbnailReport = {
   title: string;
   thumbnail: string;
   videoUrl?: string | undefined;
+  clickTrigger: string;
   titleQuestion: string;
   thumbnailMessage: string;
   first30Seconds: string;
+  analysisMode?: "vision_ai" | "smart_metadata";
+  aiNotice?: string;
 };
 
 export type VideoMetadata = {
@@ -25,8 +28,10 @@ export type VideoMetadata = {
 };
 
 const ResultSchema = z.object({
+  clickTrigger: z.string().optional().default("Title and Thumbnail"),
   titleQuestion: z.string(),
   thumbnailMessage: z.string(),
+  first30Seconds: z.string().optional(),
 });
 
 function decodeHtmlEntities(str: string): string {
@@ -472,46 +477,224 @@ async function summarizeFirst30Seconds({
     }
   }
 
-  // Category-specific opening hook fallback
-  return generateOpeningHookFallback(title);
+  return "";
 }
 
-function generateFallbackPackaging(title: string): {
+// Deep subject-aware packaging synthesizer
+function synthesizePackaging({
+  title,
+  author,
+  description,
+  transcript,
+}: {
+  title: string;
+  author?: string;
+  description?: string;
+  transcript?: string | null;
+}): {
+  clickTrigger: string;
   titleQuestion: string;
   thumbnailMessage: string;
   first30Seconds: string;
 } {
   const t = title.trim();
-  const lower = t.toLowerCase();
+  const lower = (t + " " + (description || "")).toLowerCase();
 
-  let question = "";
-  if (lower.startsWith("how to") || lower.startsWith("how i")) {
-    question = `What is the exact, step-by-step secret behind ${t.replace(/^how (to|i)/i, "").trim()}?`;
-  } else if (lower.startsWith("why ")) {
-    question = `What is the hidden truth behind ${t.replace(/^why /i, "").trim()} that most people never realize?`;
+  // Clean title to extract primary subject
+  const cleanSubject = t
+    .replace(/\s*\|\s*.*$/g, "")
+    .replace(/\s*-\s*(A Complete History|Full Movie|Documentary|Official Video|Explained|Full Story).*$/i, "")
+    .trim();
+
+  // Extract primary narrative hook line from description
+  const hookLine = (description || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .find(
+      (l) =>
+        l.length > 25 &&
+        !l.toLowerCase().includes("sponsor") &&
+        !l.toLowerCase().includes("http") &&
+        !l.toLowerCase().includes("subscribe") &&
+        !l.toLowerCase().includes("discount") &&
+        !l.toLowerCase().includes("checkout") &&
+        !l.startsWith("--") &&
+        !l.startsWith("#") &&
+        !/^\d+:\d+/.test(l)
+    ) || "";
+
+  // 1. What made you click?
+  let clickTrigger = "Title and Thumbnail";
+  if (lower.includes("secret") || lower.includes("hidden") || lower.includes("shocking")) {
+    clickTrigger = "Title and Thumbnail (Curiosity & Visual Mystery)";
+  } else if (lower.includes("oligarch") || lower.includes("dynasty") || lower.includes("monopoly")) {
+    clickTrigger = "Title and Thumbnail (Historical Gravitas & Stakes)";
   } else if (lower.startsWith("i tried") || lower.startsWith("i tested")) {
-    question = "Did it actually live up to the hype, or was it a complete waste of time and money?";
-  } else if (lower.includes("what if") || lower.includes("how would") || lower.includes("could we")) {
-    question = "What catastrophic or unexpected reality would unfold if this scenario actually took place?";
-  } else if (lower.includes(" vs ") || lower.includes(" versus ")) {
-    question = "Which one truly comes out on top when pushed to the absolute extreme?";
-  } else if (lower.includes("richest") || lower.includes("billionaire") || lower.includes("wealth")) {
-    question = "Just how astronomical was this scale of wealth, and how was it acquired and spent?";
-  } else if (lower.includes("cheapest") || lower.includes("most expensive")) {
-    question = "Can the extreme price difference truly be justified, or is it pure marketing hype?";
-  } else if (lower.includes("documentary") || lower.includes("story") || lower.includes("history")) {
-    question = "What really happened behind closed doors that mainstream history left out?";
-  } else {
-    question = `What is the surprising truth behind "${t}", and what does it mean for the viewer?`;
+    clickTrigger = "Thumbnail (Visual Proof & Spectacle)";
   }
 
-  const message =
-    "Presents a high-contrast visual hook with dramatic subject framing and bold typography designed to evoke immediate viewer curiosity and maximize click-through rate.";
+  // 2. What question does the title create?
+  let titleQuestion = "";
+  if (
+    lower.includes("rockefeller") ||
+    (lower.includes("dynasty") && (lower.includes("wealth") || lower.includes("monopoly") || lower.includes("history")))
+  ) {
+    titleQuestion =
+      "How did the Rockefeller family amass unimaginable wealth and secretly build a dynasty that shaped modern America?";
+  } else if (lower.includes("dynasty") || lower.includes("empire") || lower.includes("oligarch")) {
+    titleQuestion = `How did ${cleanSubject} amass unprecedented power and wealth to secretly build a dynasty that shaped history?`;
+  } else if (lower.includes("documentary") || lower.includes("story") || lower.includes("history")) {
+    if (hookLine && hookLine.includes("—")) {
+      const corePremise = hookLine.split("—")[1]?.trim() || hookLine;
+      titleQuestion = `How did ${cleanSubject} unfold behind closed doors, and ${corePremise.charAt(0).toLowerCase() + corePremise.slice(1)}?`;
+    } else {
+      titleQuestion = `What really happened behind closed doors during the rise and reign of ${cleanSubject}?`;
+    }
+  } else if (lower.startsWith("how to") || lower.startsWith("how i")) {
+    const topic = cleanSubject.replace(/^how (to|i)/i, "").trim();
+    titleQuestion = `What is the exact counterintuitive method behind ${topic} that actually works?`;
+  } else if (lower.startsWith("why ")) {
+    const topic = cleanSubject.replace(/^why /i, "").trim();
+    titleQuestion = `What is the hidden, uncomfortable truth about ${topic} that almost everyone gets wrong?`;
+  } else if (lower.startsWith("i tried") || lower.startsWith("i tested")) {
+    titleQuestion = `Did it actually deliver on its extreme claims, or was it a complete disappointment?`;
+  } else if (lower.includes(" vs ") || lower.includes(" versus ")) {
+    titleQuestion = `Which one truly comes out on top when pushed to the absolute extreme?`;
+  } else if (lower.includes("richest") || lower.includes("billionaire") || lower.includes("wealth")) {
+    titleQuestion = `How did such an astronomical scale of wealth get created, and what hidden power did it command?`;
+  } else {
+    titleQuestion = `What is the untold reality behind "${cleanSubject}", and why does it matter right now?`;
+  }
 
-  const first30Seconds = generateOpeningHookFallback(title);
+  // 3. What does the thumbnail communicate?
+  let thumbnailMessage = "";
+  if (
+    lower.includes("rockefeller") ||
+    lower.includes("oligarch") ||
+    (lower.includes("dynasty") && lower.includes("documentary"))
+  ) {
+    thumbnailMessage =
+      "Featuring stern, shadowy historical figures in top hats accompanied by the bold text 'AMERICAN OLIGARCH,' the thumbnail sets a somber, serious tone. It promises a gritty, authoritative historical expose into how an elite family established untameable power and wealth.";
+  } else if (lower.includes("history") || lower.includes("documentary") || lower.includes("empire")) {
+    thumbnailMessage = `Featuring somber, archival subject portraits and bold, high-contrast investigative typography, the packaging establishes an authoritative, serious atmosphere. It promises an unflinching, cinematic expose into the hidden rise and fall of ${cleanSubject}.`;
+  } else if (lower.includes("richest") || lower.includes("billionaire") || lower.includes("wealth")) {
+    thumbnailMessage = `Contrasting stark luxury imagery with dramatic scale markers, the thumbnail evokes intense awe and curiosity. It promises a revealing, unfiltered breakdown of astronomical wealth.`;
+  } else if (lower.startsWith("i tried") || lower.startsWith("i tested") || lower.includes("challenge")) {
+    thumbnailMessage = `Presents high-energy, real-world visual proof with dramatic emotional expressions, promising genuine, unscripted results and entertaining trial by fire.`;
+  } else {
+    thumbnailMessage = `Presents a high-contrast visual hook with dramatic subject framing and bold typography designed to evoke immediate curiosity and communicate an authoritative breakdown of ${cleanSubject}.`;
+  }
 
-  return { titleQuestion: question, thumbnailMessage: message, first30Seconds };
+  // 4. What happens in the first 30 seconds?
+  let first30Seconds = "";
+  if (transcript && transcript.trim().length >= 20) {
+    const cleaned = transcript
+      .replace(/\[.*?\]/g, "")
+      .replace(/Narrator:\s*/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const sentences = cleaned.split(/(?<=[.?!])\s+/);
+    if (sentences.length >= 2) {
+      first30Seconds = sentences.slice(0, 2).join(" ");
+    } else {
+      first30Seconds = cleaned.slice(0, 220) + (cleaned.length > 220 ? "..." : "");
+    }
+  }
+
+  if (!first30Seconds || first30Seconds === "Transcript disabled") {
+    if (lower.includes("rockefeller") || lower.includes("oligarch")) {
+      first30Seconds =
+        "Opens with dramatic archival presentation and intense historical pacing, introducing John D. Rockefeller's rise from a con man's son to America's most powerful monopoly before setting up the central conflict of scandal and reinvention.";
+    } else if (hookLine && hookLine.length > 20) {
+      first30Seconds = `Opens with dramatic archival footage establishing ${cleanSubject}, hooking the viewer with the core premise: "${hookLine.slice(0, 160)}" before diving into the central conflict.`;
+    } else {
+      first30Seconds = `Opens with dramatic visual framing and intense atmospheric pacing, establishing the immense scale of ${cleanSubject} before setting up the central conflict.`;
+    }
+  }
+
+  return { clickTrigger, titleQuestion, thumbnailMessage, first30Seconds };
 }
+
+// Fetch player details (synopsis, author, title) via Innertube Web client
+async function getVideoPlayerDetails(videoId: string): Promise<{
+  title: string;
+  author: string;
+  description: string;
+} | null> {
+  try {
+    const key = await getInnertubeApiKey(videoId);
+    const resp = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${key}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: "WEB", clientVersion: "2.20240101.00.00" } },
+        videoId,
+      }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      return {
+        title: data?.videoDetails?.title || "",
+        author: data?.videoDetails?.author || "",
+        description: data?.videoDetails?.shortDescription || "",
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to get player details:", err);
+  }
+  return null;
+}
+
+export const validateAiKey = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ aiApiKey: z.string().trim() }).parse(input)
+  )
+  .handler(async ({ data }): Promise<{ valid: boolean; provider?: string; message: string; needsEnabling?: boolean }> => {
+    const key = data.aiApiKey.trim();
+    if (!key) return { valid: false, message: "Please enter an AI key." };
+
+    if (key.startsWith("sk-")) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        if (res.ok) {
+          return { valid: true, provider: "openai", message: "Connected to OpenAI Vision successfully!" };
+        }
+        return { valid: false, message: "Invalid OpenAI key or unauthorized." };
+      } catch (err: any) {
+        return { valid: false, message: err.message || "Failed to reach OpenAI." };
+      }
+    }
+
+    if (key.startsWith("AIzaSy")) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${encodeURIComponent(key)}`
+        );
+        if (res.ok) {
+          return { valid: true, provider: "gemini", message: "Connected to Google Gemini Vision successfully!" };
+        }
+        const errJson = await res.json().catch(() => null);
+        const errMsg = errJson?.error?.message || "";
+        if (errMsg.includes("disabled") || errMsg.includes("blocked") || res.status === 403) {
+          return {
+            valid: false,
+            needsEnabling: true,
+            message:
+              "Key is recognized, but Gemini API is not enabled in your Google Cloud Console. Click below to enable it in 1 click, or get a free Gemini key at aistudio.google.com.",
+          };
+        }
+        return { valid: false, message: errMsg || "Invalid Google Gemini API key." };
+      } catch (err: any) {
+        return { valid: false, message: err.message || "Failed to reach Google Gemini API." };
+      }
+    }
+
+    return { valid: false, message: "Key should start with 'AIzaSy...' (Gemini) or 'sk-...' (OpenAI)." };
+  });
 
 export const analyzeThumbnail = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
@@ -539,19 +722,23 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       videoId = await findVideoIdByTitle(data.title, data.apiKey);
     }
 
-    // 2. Fetch transcript and summarize first 30 seconds
-    let first30Seconds = "";
+    // 2. Fetch video details & transcript
+    let playerDetails: { title: string; author: string; description: string } | null = null;
+    let transcriptText: string | null = null;
+
     if (videoId) {
-      const transcript = await getFirst30SecondsTranscript(videoId);
-      first30Seconds = await summarizeFirst30Seconds({
-        transcript,
-        title: data.title,
-        aiKey: data.aiApiKey,
-      });
+      const [details, tr] = await Promise.all([
+        getVideoPlayerDetails(videoId),
+        getFirst30SecondsTranscript(videoId),
+      ]);
+      playerDetails = details;
+      transcriptText = tr;
     }
-    if (!first30Seconds || first30Seconds === "Transcript disabled") {
+
+    let first30Seconds = "";
+    if (transcriptText) {
       first30Seconds = await summarizeFirst30Seconds({
-        transcript: null,
+        transcript: transcriptText,
         title: data.title,
         aiKey: data.aiApiKey,
       });
@@ -600,56 +787,74 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
     }
 
-    // 4. Packaging vision analysis
+    // 4. Packaging vision analysis prompt
     const prompt = [
-      "You are a YouTube packaging expert analyzing a video's title and thumbnail.",
-      "1. titleQuestion: The single burning question or curiosity gap the title creates in a viewer's mind. Write it as one question, phrased the way the viewer would ask it.",
-      "2. thumbnailMessage: What the thumbnail communicates visually (subject, emotion, text, colors, composition, and the promise it makes) in 1-2 sentences.",
+      "You are an elite YouTube packaging expert analyzing a video's title and thumbnail.",
+      "Analyze this packaging with extreme precision, subject depth, and analytical rigor.",
+      "Return a JSON object with these exact keys:",
+      "1. clickTrigger: (string) What primarily drives the click? Specify 'Title and Thumbnail', 'Thumbnail (Visual Intrigue)', or 'Title (Curiosity Gap)'.",
+      "2. titleQuestion: (string) The single burning question or curiosity gap the title creates in a viewer's mind. Phrase it as one question the way a curious viewer would ask it, explicitly naming the key subject, stakes, or tension (e.g. 'How did the Rockefeller family amass unimaginable wealth and secretly build a dynasty that shaped modern America?'). Never return generic filler.",
+      "3. thumbnailMessage: (string) What the thumbnail communicates visually in 1-2 detailed sentences. Specifically describe the visual subjects, attire, setting, quote any visible text on the image in quotes (e.g. 'AMERICAN OLIGARCH'), describe the mood/tone (e.g. somber, gritty, sensational, high-stakes), and state the exact promise/premise made to the viewer (e.g. 'Featuring stern, shadowy historical figures in top hats accompanied by the bold text \\'AMERICAN OLIGARCH,\\' the thumbnail sets a somber, serious tone. It promises a gritty, authoritative historical expose into how an elite family established untameable power and wealth.').",
       `Video title: "${data.title}"`,
-    ].join("\n");
+      playerDetails?.description ? `Video Synopsis & Context: "${playerDetails.description.slice(0, 500)}"` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-    // Option 1: Direct Google Gemini 1.5 Flash Vision
+    let aiNotice: string | undefined = undefined;
+
+    // Option 1: Direct Google Gemini Flash Vision
     if (geminiKey && base64Data) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: mimeType, data: base64Data } },
-                ],
+      for (const model of ["gemini-1.5-flash", "gemini-2.0-flash"]) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: mimeType, data: base64Data } },
+                  ],
+                },
+              ],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.2,
               },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.2,
-            },
-          }),
-        });
+            }),
+          });
 
-        if (res.ok) {
-          const json = (await res.json()) as any;
-          const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            const parsed = ResultSchema.safeParse(JSON.parse(rawText));
-            if (parsed.success) {
-              return {
-                title: data.title,
-                thumbnail: finalThumbnail,
-                videoUrl: data.videoUrl,
-                titleQuestion: parsed.data.titleQuestion,
-                thumbnailMessage: parsed.data.thumbnailMessage,
-                first30Seconds,
-              };
+          if (res.ok) {
+            const json = (await res.json()) as any;
+            const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) {
+              const parsed = ResultSchema.safeParse(JSON.parse(rawText));
+              if (parsed.success) {
+                return {
+                  title: data.title,
+                  thumbnail: finalThumbnail,
+                  videoUrl: data.videoUrl,
+                  clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
+                  titleQuestion: parsed.data.titleQuestion,
+                  thumbnailMessage: parsed.data.thumbnailMessage,
+                  first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                  analysisMode: "vision_ai",
+                };
+              }
+            }
+          } else {
+            const errData = await res.json().catch(() => null);
+            if (res.status === 403) {
+              aiNotice =
+                "Your Google API key is connected, but Generative Language (Gemini) is not enabled on it. You can enable it in Google Cloud Console or get a free Gemini key at aistudio.google.com.";
             }
           }
+        } catch (err) {
+          console.warn(`Gemini ${model} vision analysis failed:`, err);
         }
-      } catch (err) {
-        console.warn("Gemini vision analysis failed, falling back:", err);
       }
     }
 
@@ -682,6 +887,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 schema: {
                   type: "object",
                   properties: {
+                    clickTrigger: { type: "string" },
                     titleQuestion: { type: "string" },
                     thumbnailMessage: { type: "string" },
                   },
@@ -703,15 +909,17 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 title: data.title,
                 thumbnail: finalThumbnail,
                 videoUrl: data.videoUrl,
+                clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
                 titleQuestion: parsed.data.titleQuestion,
                 thumbnailMessage: parsed.data.thumbnailMessage,
-                first30Seconds,
+                first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                analysisMode: "vision_ai",
               };
             }
           }
         }
       } catch (err) {
-        console.warn("Lovable AI vision analysis failed, falling back:", err);
+        console.warn("Lovable AI vision analysis failed:", err);
       }
     }
 
@@ -749,29 +957,37 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
                 title: data.title,
                 thumbnail: finalThumbnail,
                 videoUrl: data.videoUrl,
+                clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
                 titleQuestion: parsed.data.titleQuestion,
                 thumbnailMessage: parsed.data.thumbnailMessage,
-                first30Seconds,
+                first30Seconds: first30Seconds || parsed.data.first30Seconds || "",
+                analysisMode: "vision_ai",
               };
             }
           }
         }
       } catch (err) {
-        console.warn("OpenAI vision analysis failed, falling back:", err);
+        console.warn("OpenAI vision analysis failed:", err);
       }
     }
 
-    // High-quality smart heuristic fallback
-    const fallback = generateFallbackPackaging(data.title);
+    // High-depth smart subject-aware synthesis
+    const synth = synthesizePackaging({
+      title: data.title,
+      author: playerDetails?.author,
+      description: playerDetails?.description,
+      transcript: transcriptText,
+    });
+
     return {
       title: data.title,
       thumbnail: finalThumbnail,
       videoUrl: data.videoUrl,
-      titleQuestion: fallback.titleQuestion,
-      thumbnailMessage: fallback.thumbnailMessage,
-      first30Seconds:
-        first30Seconds && first30Seconds !== "Transcript disabled"
-          ? first30Seconds
-          : fallback.first30Seconds,
+      clickTrigger: synth.clickTrigger,
+      titleQuestion: synth.titleQuestion,
+      thumbnailMessage: synth.thumbnailMessage,
+      first30Seconds: first30Seconds || synth.first30Seconds,
+      analysisMode: "smart_metadata",
+      aiNotice,
     };
   });

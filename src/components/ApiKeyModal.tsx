@@ -25,6 +25,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { validateApiKey } from "@/lib/youtube.functions";
+import { validateAiKey } from "@/lib/thumbnail.functions";
 
 export const API_KEY_STORAGE_KEY = "channel_sheet_yt_api_key";
 export const AI_KEY_STORAGE_KEY = "channel_sheet_ai_api_key";
@@ -58,10 +59,13 @@ export function ApiKeyModal({
   const [validationResult, setValidationResult] = useState<{
     status: "idle" | "success" | "error";
     message: string;
+    link?: string;
+    linkText?: string;
   }>({ status: "idle", message: "" });
   const [showInstructions, setShowInstructions] = useState(false);
 
   const runValidate = useServerFn(validateApiKey);
+  const runValidateAi = useServerFn(validateAiKey);
 
   useEffect(() => {
     if (open) {
@@ -72,9 +76,11 @@ export function ApiKeyModal({
   }, [open, apiKey, aiApiKey]);
 
   async function handleSaveAndTest() {
-    const trimmed = inputValue.trim();
-    if (!trimmed) {
-      setValidationResult({ status: "error", message: "Please enter an API key" });
+    const trimmedYt = inputValue.trim();
+    const trimmedAi = aiInputValue.trim();
+
+    if (!trimmedYt && !hasServerKey && !trimmedAi) {
+      setValidationResult({ status: "error", message: "Please enter a YouTube API key or AI API key." });
       return;
     }
 
@@ -82,23 +88,49 @@ export function ApiKeyModal({
     setValidationResult({ status: "idle", message: "" });
 
     try {
-      const res = await runValidate({ data: { apiKey: trimmed } });
-      if (res.valid) {
-        setValidationResult({
-          status: "success",
-          message: "API key is valid and connected to YouTube Data API v3!",
-        });
-        onSaveKey(trimmed);
-        if (onSaveAiKey) onSaveAiKey(aiInputValue.trim());
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 1200);
-      } else {
-        setValidationResult({
-          status: "error",
-          message: res.message || "Invalid API key. Please check your credentials.",
-        });
+      if (trimmedYt) {
+        const res = await runValidate({ data: { apiKey: trimmedYt } });
+        if (!res.valid) {
+          setValidationResult({
+            status: "error",
+            message: res.message || "Invalid YouTube API key. Please check your credentials.",
+          });
+          setIsValidating(false);
+          return;
+        }
+        onSaveKey(trimmedYt);
       }
+
+      if (trimmedAi) {
+        const aiRes = await runValidateAi({ data: { aiApiKey: trimmedAi } });
+        if (!aiRes.valid) {
+          setValidationResult({
+            status: "error",
+            message: aiRes.message,
+            link: aiRes.needsEnabling
+              ? "https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview?project=46599384995"
+              : "https://aistudio.google.com/app/apikey",
+            linkText: aiRes.needsEnabling ? "Enable Gemini in Google Cloud Console" : "Get Free Key at Google AI Studio",
+          });
+          if (onSaveAiKey) onSaveAiKey(trimmedAi);
+          setIsValidating(false);
+          return;
+        }
+        if (onSaveAiKey) onSaveAiKey(trimmedAi);
+      } else if (onSaveAiKey) {
+        onSaveAiKey("");
+      }
+
+      setValidationResult({
+        status: "success",
+        message: trimmedAi
+          ? "Keys validated and saved! YouTube Data and AI Vision are fully active."
+          : "YouTube API key is valid and connected to YouTube Data API v3!",
+      });
+
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 1200);
     } catch (err: any) {
       setValidationResult({
         status: "error",
@@ -110,12 +142,11 @@ export function ApiKeyModal({
   }
 
   function handleDirectSave() {
-    const trimmed = inputValue.trim();
-    if (trimmed) {
-      onSaveKey(trimmed);
-      if (onSaveAiKey) onSaveAiKey(aiInputValue.trim());
-      onOpenChange(false);
-    }
+    const trimmedYt = inputValue.trim();
+    const trimmedAi = aiInputValue.trim();
+    if (trimmedYt) onSaveKey(trimmedYt);
+    if (onSaveAiKey) onSaveAiKey(trimmedAi);
+    onOpenChange(false);
   }
 
   function handleClear() {
@@ -231,9 +262,22 @@ export function ApiKeyModal({
 
           {/* Validation Feedback */}
           {validationResult.status === "error" && (
-            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{validationResult.message}</span>
+            <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{validationResult.message}</span>
+              </div>
+              {validationResult.link && (
+                <a
+                  href={validationResult.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-6 inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-4 hover:opacity-80"
+                >
+                  <span>{validationResult.linkText || "Open link"}</span>
+                  <ExternalLink className="h-3 w-3 inline" />
+                </a>
+              )}
             </div>
           )}
 
@@ -248,13 +292,13 @@ export function ApiKeyModal({
           <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
             <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-foreground">Stored Securely:</strong> Your key is saved strictly in your browser&apos;s local storage. It is never logged or stored in external databases.
+              <strong className="text-foreground">Stored Securely:</strong> Your keys are saved strictly in your browser&apos;s local storage. They are never logged or stored in external databases.
             </p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:items-center pt-1">
-            {apiKey ? (
+            {apiKey || aiApiKey ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -263,7 +307,7 @@ export function ApiKeyModal({
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive h-9 text-xs"
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                Remove Key
+                Remove Keys
               </Button>
             ) : (
               <div />
@@ -275,7 +319,7 @@ export function ApiKeyModal({
                 variant="outline"
                 size="sm"
                 onClick={handleDirectSave}
-                disabled={!inputValue.trim() || isValidating}
+                disabled={(!inputValue.trim() && !hasServerKey && !aiInputValue.trim()) || isValidating}
                 className="h-9 text-xs"
               >
                 Save Without Testing
@@ -285,7 +329,7 @@ export function ApiKeyModal({
                 type="button"
                 size="sm"
                 onClick={handleSaveAndTest}
-                disabled={!inputValue.trim() || isValidating}
+                disabled={(!inputValue.trim() && !hasServerKey && !aiInputValue.trim()) || isValidating}
                 className="h-9 text-xs"
               >
                 {isValidating ? (
