@@ -184,10 +184,78 @@ async function findVideoIdByTitle(title: string, apiKey?: string): Promise<strin
   }
 }
 
+let cachedInnertubeKey: string | null = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+
+async function getInnertubeApiKey(videoId: string): Promise<string> {
+  if (cachedInnertubeKey) return cachedInnertubeKey;
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const m =
+        html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) ||
+        html.match(/INNERTUBE_API_KEY\\":\\"([^\\"]+)\\"/);
+      if (m && m[1]) {
+        cachedInnertubeKey = m[1];
+        return m[1];
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to scrape Innertube key:", err);
+  }
+  return "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+}
+
+function parseTimedTextXml(xml: string): string | null {
+  const lines: string[] = [];
+  const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  let match;
+  while ((match = pRegex.exec(xml)) !== null) {
+    const t = parseInt(match[1] || "0", 10);
+    if (t < 30000) {
+      let text = match[3] || "";
+      text = text
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .trim();
+      if (text) lines.push(text);
+    }
+  }
+
+  if (lines.length === 0) {
+    const textRegex = /<text\s+start="([\d.]+)"\s+dur="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g;
+    while ((match = textRegex.exec(xml)) !== null) {
+      const startSec = parseFloat(match[1] || "0");
+      if (startSec < 30) {
+        let text = match[3] || "";
+        text = text
+          .replace(/<[^>]+>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&#39;/g, "'")
+          .replace(/&quot;/g, '"')
+          .trim();
+        if (text) lines.push(text);
+      }
+    }
+  }
+
+  const result = lines.join(" ").replace(/\s+/g, " ").trim();
+  return result.length > 0 ? result : null;
+}
+
 // Extract transcript for the first 30 seconds via YouTube InnerTube API
 async function getFirst30SecondsTranscript(videoId: string): Promise<string | null> {
   try {
-    const resp = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+    const key = await getInnertubeApiKey(videoId);
+    const resp = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${key}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -199,61 +267,65 @@ async function getFirst30SecondsTranscript(videoId: string): Promise<string | nu
       }),
     });
 
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (resp.ok) {
+      const data = await resp.json();
+      const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
 
-    if (!captionTracks || !Array.isArray(captionTracks) || captionTracks.length === 0) {
-      return null;
-    }
+      if (Array.isArray(captionTracks) && captionTracks.length > 0) {
+        const track =
+          captionTracks.find((t: any) => t.languageCode === "en" || t.languageCode?.startsWith("en")) ||
+          captionTracks[0];
 
-    const track = captionTracks.find((t: any) => t.languageCode === "en") || captionTracks[0];
-    if (!track?.baseUrl) return null;
-
-    const xmlResp = await fetch(track.baseUrl);
-    if (!xmlResp.ok) return null;
-    const xml = await xmlResp.text();
-
-    const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
-    let match;
-    const lines: string[] = [];
-    while ((match = pRegex.exec(xml)) !== null) {
-      const t = parseInt(match[1] || "0", 10);
-      if (t < 30000) {
-        let text = match[3] || "";
-        text = text
-          .replace(/<[^>]+>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&#39;/g, "'")
-          .replace(/&quot;/g, '"')
-          .trim();
-        if (text) lines.push(text);
-      }
-    }
-
-    if (lines.length === 0) {
-      const textRegex = /<text\s+start="([\d.]+)"\s+dur="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g;
-      while ((match = textRegex.exec(xml)) !== null) {
-        const startSec = parseFloat(match[1] || "0");
-        if (startSec < 30) {
-          let text = match[3] || "";
-          text = text
-            .replace(/<[^>]+>/g, "")
-            .replace(/&amp;/g, "&")
-            .replace(/&#39;/g, "'")
-            .replace(/&quot;/g, '"')
-            .trim();
-          if (text) lines.push(text);
+        if (track?.baseUrl) {
+          let trackUrl = track.baseUrl;
+          if (track.languageCode !== "en" && track.isTranslatable) {
+            trackUrl += "&tlang=en";
+          }
+          const xmlResp = await fetch(trackUrl);
+          if (xmlResp.ok) {
+            const xml = await xmlResp.text();
+            const parsed = parseTimedTextXml(xml);
+            if (parsed) return parsed;
+          }
         }
       }
     }
-
-    const result = lines.join(" ").replace(/\s+/g, " ").trim();
-    return result.length > 0 ? result : null;
   } catch (err) {
-    console.warn("Transcript extraction failed:", err);
-    return null;
+    console.warn("Transcript extraction via Innertube failed:", err);
   }
+
+  // Fallback: watch page HTML captionTracks
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (watchRes.ok) {
+      const html = await watchRes.text();
+      const m = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
+      if (m && m[1]) {
+        const tracks = JSON.parse(m[1]);
+        const track =
+          tracks.find((t: any) => t.languageCode === "en" || t.languageCode?.startsWith("en")) ||
+          tracks[0];
+        if (track?.baseUrl) {
+          const xmlResp = await fetch(track.baseUrl);
+          if (xmlResp.ok) {
+            const xml = await xmlResp.text();
+            const parsed = parseTimedTextXml(xml);
+            if (parsed) return parsed;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Watch page transcript fallback failed:", err);
+  }
+
+  return null;
 }
 
 // Summarize the opening 30 seconds
