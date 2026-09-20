@@ -564,13 +564,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
                   <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     What happens in the first 30 seconds
                   </p>
-                  <p className="mt-1 text-sm leading-relaxed">
-                    {r.first30Seconds === "Transcript disabled" ? (
-                      <span className="text-muted-foreground italic">Transcript disabled</span>
-                    ) : (
-                      r.first30Seconds
-                    )}
-                  </p>
+                  <p className="mt-1 text-sm leading-relaxed">{r.first30Seconds}</p>
                 </div>
               </article>
             ))}

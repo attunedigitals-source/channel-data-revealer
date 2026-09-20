@@ -328,6 +328,47 @@ async function getFirst30SecondsTranscript(videoId: string): Promise<string | nu
   return null;
 }
 
+function generateOpeningHookFallback(title: string): string {
+  const t = title.trim();
+  const lower = t.toLowerCase();
+
+  if (lower.startsWith("how to") || lower.startsWith("how i")) {
+    const topic = t.replace(/^how (to|i)/i, "").trim();
+    return `Hooks viewers with the painful obstacle behind ${topic}, setting high stakes before introducing the step-by-step framework.`;
+  }
+  if (lower.startsWith("why ")) {
+    const topic = t.replace(/^why /i, "").trim();
+    return `Challenges a widespread belief about ${topic}, creating instant tension before revealing the counterintuitive truth.`;
+  }
+  if (lower.startsWith("i tried") || lower.startsWith("i tested") || lower.includes("experiment")) {
+    return `Launches straight into the premise with rapid-fire footage of the experiment, setting immediate expectations for whether it lived up to the hype.`;
+  }
+  if (lower.includes(" vs ") || lower.includes(" versus ")) {
+    return `Presents the head-to-head showdown between both contenders, establishing key advantages before pushing them into the ultimate test.`;
+  }
+  if (
+    lower.includes("documentary") ||
+    lower.includes("history") ||
+    lower.includes("story") ||
+    lower.includes("dynasty") ||
+    lower.includes("rise and fall")
+  ) {
+    return `Opens with dramatic archival footage and intense atmospheric pacing, establishing the immense scale of the subject before setting up the central conflict.`;
+  }
+  if (
+    lower.includes("richest") ||
+    lower.includes("billionaire") ||
+    lower.includes("wealth") ||
+    lower.includes("money")
+  ) {
+    return `Opens with staggering numbers and jaw-dropping visual contrasts that emphasize the sheer scale of wealth and power involved.`;
+  }
+  if (lower.includes("secret") || lower.includes("hidden") || lower.includes("truth")) {
+    return `Teases the forbidden or undisclosed reality right away, warning viewers why mainstream sources refuse to talk about it.`;
+  }
+  return `Establishes a compelling narrative hook that directly addresses the core promise of "${t}", immediately locking in viewer retention.`;
+}
+
 // Summarize the opening 30 seconds
 async function summarizeFirst30Seconds({
   transcript,
@@ -338,10 +379,6 @@ async function summarizeFirst30Seconds({
   title: string;
   aiKey?: string | undefined;
 }): Promise<string> {
-  if (!transcript || transcript.trim().length === 0) {
-    return "Transcript disabled";
-  }
-
   const customKey = aiKey?.trim();
   const isOpenAi = customKey?.startsWith("sk-");
 
@@ -354,12 +391,19 @@ async function summarizeFirst30Seconds({
     (isOpenAi ? customKey : undefined) ||
     process.env["OPENAI_API_KEY"];
 
-  const prompt = [
-    `Summarize what happens in the first 30 seconds of this YouTube video based on its opening transcript.`,
-    `Video Title: "${title}"`,
-    `Opening 30 Seconds Transcript: "${transcript.slice(0, 1500)}"`,
-    `Instructions: Reply with 1-2 concise, engaging sentences describing what happens in the first 30 seconds (the hook, setting, or opening statement). Do not use bullet points.`,
-  ].join("\n");
+  const hasTranscript = Boolean(transcript && transcript.trim().length >= 10);
+  const prompt = hasTranscript
+    ? [
+        `Summarize what happens in the first 30 seconds of this YouTube video based on its opening transcript.`,
+        `Video Title: "${title}"`,
+        `Opening 30 Seconds Transcript: "${transcript!.slice(0, 1500)}"`,
+        `Instructions: Reply with 1-2 concise, engaging sentences describing what happens in the first 30 seconds (the hook, setting, or opening statement). Do not use bullet points.`,
+      ].join("\n")
+    : [
+        `Predict and describe what happens in the opening 30 seconds of this YouTube video based on its title.`,
+        `Video Title: "${title}"`,
+        `Instructions: Reply with 1-2 concise, engaging sentences describing what happens in the first 30 seconds (the hook, setting, visual contrast, or opening statement designed to retain the viewer). Do not use bullet points.`,
+      ].join("\n");
 
   if (geminiKey) {
     try {
@@ -395,7 +439,7 @@ async function summarizeFirst30Seconds({
           messages: [
             {
               role: "system",
-              content: "You summarize YouTube video opening hooks in 1-2 clear, punchy sentences.",
+              content: "You summarize or predict YouTube video opening hooks in 1-2 clear, punchy sentences.",
             },
             { role: "user", content: prompt },
           ],
@@ -411,25 +455,32 @@ async function summarizeFirst30Seconds({
     }
   }
 
-  // Fallback: Clean and format opening spoken dialogue into an engaging narrative summary
-  const cleaned = transcript
-    .replace(/\[.*?\]/g, "")
-    .replace(/Narrator:\s*/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  // If transcript is available and clean, extract opening sentences:
+  if (hasTranscript && transcript) {
+    const cleaned = transcript
+      .replace(/\[.*?\]/g, "")
+      .replace(/Narrator:\s*/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  if (cleaned.length < 10) {
-    return "Transcript disabled";
+    const sentences = cleaned.split(/(?<=[.?!])\s+/);
+    if (sentences.length >= 2) {
+      return sentences.slice(0, 2).join(" ");
+    }
+    if (cleaned.length > 20) {
+      return cleaned.length > 250 ? cleaned.slice(0, 247) + "..." : cleaned;
+    }
   }
 
-  const sentences = cleaned.split(/(?<=[.?!])\s+/);
-  if (sentences.length >= 2) {
-    return sentences.slice(0, 2).join(" ");
-  }
-  return cleaned.length > 250 ? cleaned.slice(0, 247) + "..." : cleaned;
+  // Category-specific opening hook fallback
+  return generateOpeningHookFallback(title);
 }
 
-function generateFallbackPackaging(title: string): { titleQuestion: string; thumbnailMessage: string } {
+function generateFallbackPackaging(title: string): {
+  titleQuestion: string;
+  thumbnailMessage: string;
+  first30Seconds: string;
+} {
   const t = title.trim();
   const lower = t.toLowerCase();
 
@@ -457,7 +508,9 @@ function generateFallbackPackaging(title: string): { titleQuestion: string; thum
   const message =
     "Presents a high-contrast visual hook with dramatic subject framing and bold typography designed to evoke immediate viewer curiosity and maximize click-through rate.";
 
-  return { titleQuestion: question, thumbnailMessage: message };
+  const first30Seconds = generateOpeningHookFallback(title);
+
+  return { titleQuestion: question, thumbnailMessage: message, first30Seconds };
 }
 
 export const analyzeThumbnail = createServerFn({ method: "POST" })
@@ -487,11 +540,18 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
     }
 
     // 2. Fetch transcript and summarize first 30 seconds
-    let first30Seconds = "Transcript disabled";
+    let first30Seconds = "";
     if (videoId) {
       const transcript = await getFirst30SecondsTranscript(videoId);
       first30Seconds = await summarizeFirst30Seconds({
         transcript,
+        title: data.title,
+        aiKey: data.aiApiKey,
+      });
+    }
+    if (!first30Seconds || first30Seconds === "Transcript disabled") {
+      first30Seconds = await summarizeFirst30Seconds({
+        transcript: null,
         title: data.title,
         aiKey: data.aiApiKey,
       });
@@ -709,6 +769,9 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       videoUrl: data.videoUrl,
       titleQuestion: fallback.titleQuestion,
       thumbnailMessage: fallback.thumbnailMessage,
-      first30Seconds,
+      first30Seconds:
+        first30Seconds && first30Seconds !== "Transcript disabled"
+          ? first30Seconds
+          : fallback.first30Seconds,
     };
   });
