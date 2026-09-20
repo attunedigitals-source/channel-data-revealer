@@ -487,9 +487,10 @@ async function summarizeFirst30Seconds({
 // Helper: clean YouTube title by removing common video packaging tags
 function cleanTitle(raw: string): string {
   return raw
-    .replace(/\s*[\|\[\(].*?(Documentary|Full Movie|4K|2026|Official|Explained|Complete).*?[\]\)]/gi, "")
+    .replace(/\s*[\|\[\(].*?(Documentary|Full Movie|4K|2026|Official|Explained|Complete|Compilation|Science Channel|History|NOVA|PBS|Part\s*\d+).*?[\]\)]/gi, "")
     .replace(/\s*\|\s*.*$/g, "")
     .replace(/\s*-\s*(A Complete History|Full Movie|Documentary|Official Video|Explained|Full Story).*$/i, "")
+    .replace(/^["'“”]|["'“”]$/g, "")
     .trim();
 }
 
@@ -583,7 +584,7 @@ function synthesizePackaging({
     ocrText
   ).toLowerCase();
 
-  // Extract a clean description synopsis sentence if available
+  // Extract clean description synopsis sentence if available
   const descSentences = description
     .split("\n")
     .map((l) => l.trim())
@@ -601,9 +602,72 @@ function synthesizePackaging({
     );
   const leadSynopsis = descSentences[0] || "";
 
-  // 1. Identify specific theme / packaging archetype (specific subjects prioritized first)
+  // 1. Domain / Archetype classification
   let theme = "general";
   if (
+    (fullContext.includes("japan") || fullContext.includes("japanese")) &&
+    (fullContext.includes("advanced") || fullContext.includes("future") || fullContext.includes("bullet train") || fullContext.includes("infrastructure") || fullContext.includes("behind"))
+  ) {
+    theme = "japan_infrastructure";
+  } else if (
+    (fullContext.includes("china") || fullContext.includes("chinese")) &&
+    (fullContext.includes("engineering") || fullContext.includes("wonders") || fullContext.includes("megaproject") || fullContext.includes("bridge") || fullContext.includes("futuristic") || fullContext.includes("infrastructure"))
+  ) {
+    theme = "chinese_engineering";
+  } else if (
+    (fullContext.includes("pyramid") || fullContext.includes("pyramids") || fullContext.includes("graham hancock") || fullContext.includes("giza") || fullContext.includes("sphinx")) &&
+    (fullContext.includes("built") || fullContext.includes("really") || fullContext.includes("proof") || fullContext.includes("lost civilization") || fullContext.includes("secret") || fullContext.includes("ancient"))
+  ) {
+    theme = "pyramid_ancient_mystery";
+  } else if (
+    (fullContext.includes("unsolved") || fullContext.includes("disturbing") || fullContext.includes("disappearance") || fullContext.includes("vanished")) &&
+    (fullContext.includes("footage") || fullContext.includes("video") || fullContext.includes("camera") || fullContext.includes("cases"))
+  ) {
+    theme = "unsolved_cases_footage";
+  } else if (
+    fullContext.includes("unsolved mysteries") ||
+    fullContext.includes("cannot be explained") ||
+    fullContext.includes("unexplained mysteries") ||
+    (fullContext.includes("mysteries") && fullContext.includes("compilation")) ||
+    fullContext.includes("most mysterious")
+  ) {
+    theme = "unsolved_mysteries_compilation";
+  } else if (
+    fullContext.includes("da vinci") ||
+    fullContext.includes("leonardo") ||
+    (fullContext.includes("ancient aliens") && (fullContext.includes("secrets") || fullContext.includes("history") || fullContext.includes("mind-blowing")))
+  ) {
+    theme = "ancient_aliens_davinci";
+  } else if (
+    fullContext.includes("your brain") ||
+    fullContext.includes("who's in control") ||
+    fullContext.includes("neuroscience") ||
+    (fullContext.includes("brain") && fullContext.includes("control")) ||
+    fullContext.includes("consciousness")
+  ) {
+    theme = "brain_neuroscience";
+  } else if (
+    fullContext.includes("human civilization") ||
+    fullContext.includes("history of human civilizations") ||
+    fullContext.includes("history of civilizations") ||
+    fullContext.includes("history of mankind") ||
+    fullContext.includes("ancient to modern") ||
+    cTitle.toLowerCase().includes("civilization")
+  ) {
+    theme = "civilizations";
+  } else if (
+    fullContext.includes("universe") ||
+    fullContext.includes("cosmic") ||
+    fullContext.includes("astronomy") ||
+    fullContext.includes("space") ||
+    fullContext.includes("galaxy") ||
+    fullContext.includes("black hole") ||
+    fullContext.includes("astrophysics") ||
+    fullContext.includes("big bang") ||
+    fullContext.includes("solar system")
+  ) {
+    theme = "space_cosmology";
+  } else if (
     fullContext.includes("antarctica") ||
     fullContext.includes("forbidden continent") ||
     fullContext.includes("inner earth")
@@ -617,17 +681,10 @@ function synthesizePackaging({
     theme = "mansa_musa";
   } else if (
     fullContext.includes("rockefeller") ||
-    (fullContext.includes("oligarch") && fullContext.includes("dynasty"))
+    (fullContext.includes("oligarch") && fullContext.includes("dynasty")) ||
+    fullContext.includes("standard oil")
   ) {
     theme = "rockefeller";
-  } else if (
-    fullContext.includes("human civilization") ||
-    fullContext.includes("history of civilizations") ||
-    fullContext.includes("history of mankind") ||
-    fullContext.includes("ancient to modern") ||
-    cTitle.toLowerCase().includes("civilization")
-  ) {
-    theme = "civilizations";
   } else if (
     fullContext.includes("richest") ||
     fullContext.includes("billionaire") ||
@@ -682,6 +739,113 @@ function synthesizePackaging({
   let payoff = "";
 
   switch (theme) {
+    case "space_cosmology": {
+      const isScale = cTitle.toLowerCase().includes("how big") || cTitle.toLowerCase().includes("scale");
+      const isCycle = cTitle.toLowerCase().includes("beginning") || cTitle.toLowerCase().includes("end");
+      const ocrDisplay = ocrText ? `prominent text '${ocrText}'` : "deep-space celestial imagery";
+
+      if (isScale) {
+        clickTrigger = "Title (Incomprehensible Scale & Vertigo-Inducing Paradox)";
+        titleQuestion = "Where does the edge of observable space actually lie, and what exists beyond the cosmic horizon that human instruments can never reach?";
+        thumbnailMessage = `Contrasting microscopic planetary scale against a sprawling, incandescent cosmic web of superclusters alongside ${ocrDisplay}, the visual packaging visually overwhelms the viewer with cosmic magnitude.`;
+        first30Seconds = "Immediately hooks viewers with comparative zoom-out perspectives from Earth into deep space, establishing a vertigo-inducing sense of scale before calculating cosmic boundaries.";
+        centralMystery = "The paradox between our 93-billion-light-year observable cosmic bubble and the theoretical infinite universe expanding faster than the speed of light.";
+        payoff = "A mind-expanding visual framework that contextualizes humanity's place in the cosmos and reveals the true mathematical dimensions of space.";
+      } else if (isCycle) {
+        clickTrigger = "Title and Thumbnail (Cosmic Creation & Existential Horizon)";
+        titleQuestion = "How did the universe ignite from a single primordial singularity, and what physical laws will dictate its eventual fade into eternal cold and darkness?";
+        thumbnailMessage = `Pairing dramatic celestial ignition imagery against deep interstellar voids with ${ocrDisplay}, the packaging conveys staggering cosmic scale and existential finality.`;
+        first30Seconds = "Opens with breathtaking telescopic deep-space imagery and ominous narration outlining cosmic scale, framing the existential timeline before diving into the primordial Big Bang.";
+        centralMystery = "Whether the cosmos is destined for an endless Big Freeze, a violent Big Rip, or a recursive Big Crunch, and what dark energy reveals about our final fate.";
+        payoff = "A breathtaking, science-backed chronicle connecting the earliest microseconds of the Big Bang to the theoretical final moments of all matter in existence.";
+      } else {
+        clickTrigger = "Title and Thumbnail (Astrophysical Revelation & Deep Space Discovery)";
+        titleQuestion = `What profound physical mechanisms govern ${cTitle}, and how does it reshape our understanding of the universe?`;
+        thumbnailMessage = `Featuring high-definition astrophysical visualization of celestial structures set against the void of space, the imagery promises a mind-expanding scientific deep dive.`;
+        first30Seconds = "Opens with stunning deep-space observatory captures and urgent scientific narration, establishing the immense cosmic stakes before unpacking the underlying physics.";
+        centralMystery = `How extreme gravitational, relativistic, or quantum forces operate at the outer limits of modern theoretical physics regarding ${cTitle}.`;
+        payoff = `A clear, awe-inspiring scientific breakdown translating complex cosmology into an accessible, panoramic understanding of space.`;
+      }
+      break;
+    }
+
+    case "japan_infrastructure": {
+      const ocrDisplay = ocrText ? `the bold headline '${ocrText}'` : "neon futuristic accents";
+      clickTrigger = "Title and Thumbnail (Hyper-Modern Infrastructure & Comparative Disruption)";
+      titleQuestion = "What revolutionary civil engineering and automated urban systems allow Japan to function decades ahead of Western modernization?";
+      thumbnailMessage = `Featuring neon-lit futuristic Tokyo transit hubs juxtaposed with high-speed Shinkansen bullet trains and ${ocrDisplay}, the visual packaging delivers an unmistakable promise of next-generation infrastructure.`;
+      first30Seconds = "Opens with rapid-fire footage of Japan's flawless automated transit and robotic urban systems, immediately establishing a stark contrast against outdated Western infrastructure.";
+      centralMystery = "How Japan mastered complex transit, high-density housing, and robotic automation logistics that Western superpowers continue to struggle with.";
+      payoff = "An insider's tour of Japan's most impressive innovations, explaining the cultural discipline and engineering breakthroughs that power their futuristic daily life.";
+      break;
+    }
+
+    case "chinese_engineering": {
+      const ocrDisplay = ocrText ? `the prominent headline '${ocrText}'` : "dramatic structural scale";
+      clickTrigger = "Title and Thumbnail (Monumental Megaprojects & Architectural Feats)";
+      titleQuestion = "What unprecedented civil engineering breakthroughs and logistical scale enabled China to construct the world's most daring megaprojects in record time?";
+      thumbnailMessage = `Showcasing cloud-piercing suspension bridges, massive dams, and hyper-modern architectural marvels with ${ocrDisplay}, the visual packaging highlights monumental scale and cutting-edge construction.`;
+      first30Seconds = "Launches straight into dizzying aerial drone shots of impossible bridges spanning vast mountain canyons, establishing unprecedented construction speed and scale within seconds.";
+      centralMystery = "How Chinese civil engineers overcame treacherous geography, extreme seismic forces, and architectural limitations to complete structures previously deemed impossible.";
+      payoff = "An awe-inspiring breakdown of China's most complex megaprojects, revealing the architectural blueprints, machinery, and investments behind their infrastructure boom.";
+      break;
+    }
+
+    case "pyramid_ancient_mystery": {
+      const ocrDisplay = ocrText ? `the bold headline '${ocrText}'` : "investigative typography";
+      clickTrigger = "Thumbnail and Title (Forbidden Archaeology & Paradigm-Shifting Evidence)";
+      titleQuestion = "What controversial geological and astronomical evidence challenges the conventional timeline of who designed and constructed the Great Pyramids?";
+      thumbnailMessage = `Pairing a dramatic, high-contrast close-up of the Giza pyramids with Graham Hancock's serious gaze and ${ocrDisplay}, the packaging signals an urgent challenge to mainstream history.`;
+      first30Seconds = "Hooks the audience with sensational podcast soundbites and provocative archaeological questions, immediately questioning the accepted textbook timeline of pyramid construction.";
+      centralMystery = "The inexplicable mathematical precision, astronomical alignments, and multi-ton stone lifting capabilities of the pyramids that conventional Bronze Age tools struggle to account for.";
+      payoff = "A deep dive into alternative archaeological evidence, water erosion patterns, and ancient flood myths pointing to an advanced forgotten civilization.";
+      break;
+    }
+
+    case "unsolved_cases_footage": {
+      const ocrDisplay = ocrText ? `the chilling text '${ocrText}'` : "grainy timestamp markers";
+      clickTrigger = "Thumbnail and Title (Unsettling Surveillance & Unsolved True Crime)";
+      titleQuestion = "What chilling, unexplained anomalies captured in the final recorded moments of these individuals have left detectives and forensic examiners baffled?";
+      thumbnailMessage = `Framing grainy, distorted surveillance captures alongside ${ocrDisplay}, the thumbnail evokes visceral dread and promises genuine, terrifying unsolved mysteries.`;
+      first30Seconds = "Opens with low-frequency atmospheric drone audio and haunting real-life security camera playback, setting an unsettling tone before introducing the first case timeline.";
+      centralMystery = "The bizarre behavioral inconsistencies and abrupt vanishing acts recorded on camera moments before individuals disappeared without leaving a single physical trace.";
+      payoff = "A meticulous forensic analysis of each surveillance clip, debunking false rumors while highlighting the genuine clues that remain unexplained.";
+      break;
+    }
+
+    case "unsolved_mysteries_compilation": {
+      const ocrDisplay = ocrText ? `cryptic text declaring '${ocrText}'` : "archival shadow framing";
+      clickTrigger = "Thumbnail and Title (Enduring Global Enigmas & Baffling Phenomena)";
+      titleQuestion = "Which legendary global enigmas and historical anomalies have completely resisted every scientific attempt at debunking or rational explanation?";
+      thumbnailMessage = `Featuring shadowed silhouette figures against mysterious visual artifacts and ${ocrDisplay}, the packaging promises an extensive archive of baffling real-world enigmas.`;
+      first30Seconds = "Leads with rapid montages of historical artifacts, cryptic broadcasts, and unexplained archival events, establishing an immersive marathon of unsolved lore.";
+      centralMystery = "The complete absence of physical explanations or forensic closure surrounding historical anomalies that defy modern scientific models.";
+      payoff = "An exhaustive, evidence-focused exploration of humanity's most enduring mysteries, separating verified anomalies from urban legends.";
+      break;
+    }
+
+    case "ancient_aliens_davinci": {
+      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "cryptic manuscript sketches";
+      clickTrigger = "Thumbnail (Forbidden Knowledge & Cryptic Codes)";
+      titleQuestion = "What encrypted codes, mirror writing, and anomalous mechanical designs in Leonardo da Vinci's journals suggest knowledge far beyond his era?";
+      thumbnailMessage = `Superimposing da Vinci's Vitruvian Man alongside ${ocrDisplay} and high-contrast dramatic lighting, the packaging promises a revelatory code-breaking investigation.`;
+      first30Seconds = "Opens with high-tempo investigative narration framing da Vinci's impossible inventions, questioning the true source of his Renaissance technological breakthroughs.";
+      centralMystery = "How a single Renaissance polymath conceptualized flying machines, armored vehicles, and advanced optics centuries before the scientific revolution.";
+      payoff = "An intriguing deep-dive into da Vinci's private folios, hidden mirror-script notations, and alternative theories on his visionary genius.";
+      break;
+    }
+
+    case "brain_neuroscience": {
+      const ocrDisplay = ocrText ? `provocative text '${ocrText}'` : "glowing neural circuits";
+      clickTrigger = "Title (Existential Neuro-Paradox & Agency Illusion)";
+      titleQuestion = "Is conscious free will merely an elaborate biological illusion created by subconscious neural circuits firing seconds before you make a decision?";
+      thumbnailMessage = `Centering a glowing, complex neural network overlaying a silhouetted human profile with ${ocrDisplay}, the packaging evokes deep intrigue into the hidden biological drivers of human behavior.`;
+      first30Seconds = "Opens with a provocative psychological experiment demonstrating subconscious decision-making, instantly challenging viewers' fundamental belief in conscious control.";
+      centralMystery = "The scientific conflict between the lived experience of conscious decision-making and neurological data proving subconscious brain activity dictates our choices.";
+      payoff = "Fascinating neuroscientific evidence and cutting-edge brain scans explaining how subconscious neural networks shape personality, habits, and human destiny.";
+      break;
+    }
+
     case "civilizations": {
       const ocrDisplay = ocrText ? `the bold typography '${ocrText}'` : "bold title lettering";
       clickTrigger = "Thumbnail and Title (Epic Scope & 6,000-Year Timeline)";
@@ -863,15 +1027,38 @@ function synthesizePackaging({
     }
 
     default: {
-      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "focused focal hierarchy";
-      clickTrigger = "Title and Thumbnail (Core Narrative Promise)";
-      titleQuestion = `What is the defining, untold reality behind "${cTitle}", and why does it fundamentally change how we understand the subject?`;
-      thumbnailMessage = `Designed with focused visual composition and ${ocrDisplay}, the packaging creates an immediate curiosity gap, promising a compelling, well-researched exploration.`;
+      const ocrDisplay = ocrText ? `bold headline '${ocrText}'` : "compelling focal hierarchy";
+      const isQuestion = /^(how|why|what|who|where|when|is|can|will|could|should)\b/i.test(cTitle);
+      const isList = /^\d+\s+/i.test(cTitle);
+      const hasSubtitle = cTitle.includes(":") || cTitle.includes(" - ");
+
+      if (isQuestion) {
+        clickTrigger = "Title (Direct Curiosity Gap & Counterintuitive Answer)";
+        titleQuestion = `What surprising truth or hidden mechanism answers "${cTitle}", and what does the latest evidence reveal?`;
+      } else if (isList) {
+        clickTrigger = "Title and Thumbnail (Ranked Breakdown & Shocking Revelations)";
+        titleQuestion = `Which of these critical revelations about "${cTitle}" has the most shocking implications, and why are they so rarely discussed?`;
+      } else if (hasSubtitle) {
+        const parts = cTitle.split(/[:\-]/);
+        const mainSubject = parts[0].trim();
+        const focusArea = parts[1].trim();
+        clickTrigger = "Title and Thumbnail (Definitive Deep-Dive)";
+        titleQuestion = `What unexpected complexities and high-stakes realities define the story of ${mainSubject}, and what does ${focusArea} reveal?`;
+      } else {
+        clickTrigger = "Title and Thumbnail (Core Investigative Premise)";
+        titleQuestion = `What pivotal turning points and overlooked factors truly explain "${cTitle}", and how do they challenge conventional assumptions?`;
+      }
+
+      thumbnailMessage = ocrText
+        ? `Featuring prominent text '${ocrText}' alongside high-contrast visual framing, the packaging creates an immediate narrative hook designed to draw the viewer in.`
+        : `Utilizing compelling visual framing and stark atmospheric contrast, the packaging establishes high narrative tension, promising an in-depth, evidence-backed exploration of "${cTitle}".`;
+
       first30Seconds = leadSynopsis
-        ? `Opens with a focused visual hook introducing "${leadSynopsis.slice(0, 130)}...", locking in viewer retention before unpacking the core premise.`
-        : `Opens with an immediate hook framing the central premise of "${cTitle}", establishing rapid pacing and key visual points before exploring the broader story.`;
-      centralMystery = `The defining question or underlying conflict that "${cTitle}" promises to unpack.`;
-      payoff = `A compelling, well-substantiated conclusion that resolves the premise and delivers valuable insights to the viewer.`;
+        ? `Hooks viewers immediately with a compelling opening premise: "${leadSynopsis.slice(0, 120)}...", establishing clear stakes before diving into the core breakdown.`
+        : `Launches straight into the central premise of "${cTitle}" with rapid-fire pacing and immediate visual proof, engaging the audience from the opening moments.`;
+
+      centralMystery = `The unresolved tensions, hidden obstacles, and competing perspectives that make "${cTitle}" such a compelling, contested subject.`;
+      payoff = `A well-researched, definitive breakdown that demystifies "${cTitle}", equipping viewers with deep insights and a clear perspective.`;
       break;
     }
   }
