@@ -18,10 +18,25 @@ export type ThumbnailReport = {
   first30Seconds: string;
 };
 
+export type VideoMetadata = {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+};
+
 const ResultSchema = z.object({
   titleQuestion: z.string(),
   thumbnailMessage: z.string(),
 });
+
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
 
 function extractVideoId(raw: string): string | null {
   const v = raw.trim();
@@ -30,6 +45,115 @@ function extractVideoId(raw: string): string | null {
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i.exec(v);
   return match?.[1] ?? null;
 }
+
+export const fetchVideoMetadata = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        videoUrl: z.string().trim().min(1),
+        apiKey: z.string().trim().optional(),
+      })
+      .parse(input)
+  )
+  .handler(async ({ data }): Promise<VideoMetadata | null> => {
+    const videoId = extractVideoId(data.videoUrl);
+    if (!videoId) return null;
+
+    let title = "";
+    let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+    // 1. First attempt: YouTube public oEmbed (free, fast, no quota needed)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+      const res = await fetch(oembedUrl, {
+        signal: controller.signal,
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.title) {
+          title = decodeHtmlEntities(String(json.title).trim());
+        }
+        if (json?.thumbnail_url) {
+          thumbnail = String(json.thumbnail_url).trim();
+        }
+      }
+    } catch (err) {
+      console.warn("YouTube oEmbed fetch failed:", err);
+    }
+
+    // 2. Second attempt if title not found: YouTube Data API v3
+    if (!title) {
+      const key =
+        data.apiKey ||
+        process.env["YOUTUBE_API_KEY"] ||
+        process.env["VITE_YOUTUBE_API_KEY"] ||
+        (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
+        (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"];
+
+      if (key) {
+        try {
+          const qs = new URLSearchParams({
+            part: "snippet",
+            id: videoId,
+            key,
+          }).toString();
+          const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${qs}`);
+          if (res.ok) {
+            const ytData = await res.json();
+            const item = ytData.items?.[0];
+            if (item?.snippet?.title) {
+              title = item.snippet.title.trim();
+            }
+            const thumbs = item?.snippet?.thumbnails;
+            const bestThumb =
+              thumbs?.maxres?.url || thumbs?.standard?.url || thumbs?.high?.url || thumbs?.medium?.url;
+            if (bestThumb) {
+              thumbnail = bestThumb;
+            }
+          }
+        } catch (err) {
+          console.warn("YouTube Data API fetch failed:", err);
+        }
+      }
+    }
+
+    // 3. Third attempt: fallback oEmbed via noembed
+    if (!title) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.title) {
+            title = decodeHtmlEntities(String(json.title).trim());
+          }
+          if (json?.thumbnail_url) {
+            thumbnail = String(json.thumbnail_url).trim();
+          }
+        }
+      } catch (err) {
+        console.warn("NoEmbed fallback failed:", err);
+      }
+    }
+
+    if (!title) {
+      return null;
+    }
+
+    return {
+      videoId,
+      title,
+      thumbnail,
+    };
+  });
 
 // Search YouTube Data API to locate a video ID if the user didn't paste a URL
 async function findVideoIdByTitle(title: string, apiKey?: string): Promise<string | null> {
@@ -146,12 +270,17 @@ async function summarizeFirst30Seconds({
     return "Transcript disabled";
   }
 
+  const customKey = aiKey?.trim();
+  const isOpenAi = customKey?.startsWith("sk-");
+
   const geminiKey =
-    aiKey ||
+    (!isOpenAi ? customKey : undefined) ||
     process.env["GEMINI_API_KEY"] ||
     process.env["GOOGLE_API_KEY"] ||
     process.env["GOOGLE_AI_KEY"];
-  const openAiKey = process.env["OPENAI_API_KEY"];
+  const openAiKey =
+    (isOpenAi ? customKey : undefined) ||
+    process.env["OPENAI_API_KEY"];
 
   const prompt = [
     `Summarize what happens in the first 30 seconds of this YouTube video based on its opening transcript.`,
@@ -262,18 +391,19 @@ function generateFallbackPackaging(title: string): { titleQuestion: string; thum
 export const analyzeThumbnail = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ThumbnailReport> => {
-    if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(data.thumbnail)) {
-      throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
-    }
+    const userAiKey = data.aiApiKey?.trim();
+    const isOpenAi = userAiKey?.startsWith("sk-");
 
     const geminiKey =
-      data.aiApiKey?.trim() ||
+      (!isOpenAi ? userAiKey : undefined) ||
       process.env["GEMINI_API_KEY"] ||
       process.env["GOOGLE_API_KEY"] ||
       process.env["GOOGLE_AI_KEY"];
 
     const lovableKey = process.env["LOVABLE_API_KEY"];
-    const openAiKey = process.env["OPENAI_API_KEY"];
+    const openAiKey =
+      (isOpenAi ? userAiKey : undefined) ||
+      process.env["OPENAI_API_KEY"];
 
     // 1. Resolve videoId (from videoUrl or search by title)
     let videoId: string | null = null;
@@ -291,34 +421,51 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       first30Seconds = await summarizeFirst30Seconds({
         transcript,
         title: data.title,
-        aiKey: geminiKey,
+        aiKey: data.aiApiKey,
       });
     }
 
     // 3. Resolve thumbnail image (user upload or auto-fetch from videoId)
-    let finalThumbnail = data.thumbnail || "";
+    let finalThumbnail = data.thumbnail?.trim() || "";
     if (!finalThumbnail && videoId) {
       finalThumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+
+    if (!finalThumbnail) {
+      throw new Error("Please provide a valid YouTube video link or upload a thumbnail image.");
     }
 
     let mimeType = "image/jpeg";
     let base64Data = "";
     if (finalThumbnail.startsWith("data:")) {
       const match = /^data:([^;]+);base64,(.+)$/.exec(finalThumbnail);
-      mimeType = match?.[1] || "image/jpeg";
-      base64Data = match?.[2] || "";
-    } else if (finalThumbnail.startsWith("http")) {
+      if (!match || !match[1]?.startsWith("image/") || !match[2]) {
+        throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
+      }
+      mimeType = match[1];
+      base64Data = match[2];
+    } else if (finalThumbnail.startsWith("http://") || finalThumbnail.startsWith("https://")) {
       try {
-        const imgRes = await fetch(finalThumbnail);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const imgRes = await fetch(finalThumbnail, { signal: controller.signal });
+        clearTimeout(timeout);
         if (imgRes.ok) {
           const buf = await imgRes.arrayBuffer();
-          mimeType = imgRes.headers.get("content-type") || "image/jpeg";
+          const detectedMime = imgRes.headers.get("content-type");
+          if (detectedMime && detectedMime.startsWith("image/")) {
+            mimeType = detectedMime;
+          }
           base64Data = Buffer.from(buf).toString("base64");
           finalThumbnail = `data:${mimeType};base64,${base64Data}`;
+        } else {
+          console.warn(`Remote thumbnail fetch returned status ${imgRes.status}`);
         }
       } catch (err) {
         console.warn("Could not fetch remote thumbnail:", err);
       }
+    } else {
+      throw new Error("That doesn't look like an image. Please upload a JPG or PNG thumbnail.");
     }
 
     // 4. Packaging vision analysis

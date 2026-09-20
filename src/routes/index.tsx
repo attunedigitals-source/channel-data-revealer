@@ -4,7 +4,11 @@ import { useMutation } from "@tanstack/react-query";
 import { useState, useEffect, type FormEvent } from "react";
 import { AlertCircle, ImagePlus, KeyRound, Loader2, Play, Search, X } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
-import { analyzeThumbnail, type ThumbnailReport } from "@/lib/thumbnail.functions";
+import {
+  analyzeThumbnail,
+  fetchVideoMetadata,
+  type ThumbnailReport,
+} from "@/lib/thumbnail.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -324,7 +328,9 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
   const [videoUrl, setVideoUrl] = useState("");
   const [thumb, setThumb] = useState<string | null>(null);
   const [reports, setReports] = useState<ThumbnailReport[]>([]);
+  const [isLoadingMeta, setIsLoadingMeta] = useState(false);
   const run = useServerFn(analyzeThumbnail);
+  const getMeta = useServerFn(fetchVideoMetadata);
 
   const mutation = useMutation({
     mutationFn: (input: { title: string; thumbnail: string; videoUrl?: string }) =>
@@ -346,19 +352,42 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
   });
 
   useEffect(() => {
-    if (!thumb && videoUrl.trim()) {
-      const match =
-        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i.exec(
-          videoUrl.trim()
-        );
-      const vid =
-        match?.[1] ||
-        (/^[a-zA-Z0-9_-]{11}$/.test(videoUrl.trim()) ? videoUrl.trim() : null);
-      if (vid) {
-        setThumb(`https://img.youtube.com/vi/${vid}/hqdefault.jpg`);
-      }
-    }
-  }, [videoUrl, thumb]);
+    const raw = videoUrl.trim();
+    if (!raw) return;
+
+    const match =
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i.exec(raw);
+    const vid = match?.[1] || (/^[a-zA-Z0-9_-]{11}$/.test(raw) ? raw : null);
+
+    if (!vid) return;
+
+    // Fast visual thumbnail preview immediately
+    setThumb((prev) => (prev?.startsWith("data:") ? prev : `https://img.youtube.com/vi/${vid}/hqdefault.jpg`));
+
+    let isMounted = true;
+    setIsLoadingMeta(true);
+
+    getMeta({ data: { videoUrl: raw, apiKey: apiKey || undefined } })
+      .then((meta) => {
+        if (!isMounted || !meta) return;
+        if (meta.title) {
+          setTitle(meta.title);
+        }
+        if (meta.thumbnail) {
+          setThumb((prev) => (prev?.startsWith("data:") ? prev : meta.thumbnail));
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch video metadata:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingMeta(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [videoUrl, apiKey, getMeta]);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -401,19 +430,30 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
           <Input
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="YouTube Video Link (optional — e.g. https://www.youtube.com/watch?v=...)"
+            placeholder="YouTube Video Link (e.g. https://www.youtube.com/watch?v=...)"
             aria-label="YouTube video URL"
             className="h-12"
           />
 
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Mansa Musa - History's Richest Man Documentary"
-            aria-label="Video title"
-            maxLength={300}
-            className="h-12"
-          />
+          <div className="relative">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={
+                isLoadingMeta
+                  ? "Fetching video title..."
+                  : "e.g. Mansa Musa - History's Richest Man Documentary"
+              }
+              aria-label="Video title"
+              maxLength={300}
+              className={`h-12 ${isLoadingMeta ? "pr-10" : ""}`}
+            />
+            {isLoadingMeta && (
+              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground flex items-center gap-1 text-xs">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <label className="flex h-28 w-full cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-secondary/40 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 sm:w-56">
@@ -472,18 +512,27 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{(mutation.error as Error).message}</span>
               </div>
-              {onOpenKeyModal && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={onOpenKeyModal}
-                  className="h-8 shrink-0 text-xs gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <KeyRound className="h-3.5 w-3.5" />
-                  Configure AI Key
-                </Button>
-              )}
+              {onOpenKeyModal &&
+                (() => {
+                  const msg = ((mutation.error as Error).message || "").toLowerCase();
+                  const isKeyError =
+                    msg.includes("ai key") ||
+                    msg.includes("api key") ||
+                    msg.includes("unauthorized") ||
+                    msg.includes("quota");
+                  return isKeyError && !aiApiKey ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={onOpenKeyModal}
+                      className="h-8 shrink-0 text-xs gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Configure AI Key
+                    </Button>
+                  ) : null;
+                })()}
             </div>
           )}
         </form>
