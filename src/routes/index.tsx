@@ -397,6 +397,25 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
 
   const parsedBatchUrls = useMemo(() => parseBatchUrls(batchUrlsText), [batchUrlsText]);
 
+  function resolveExportThumbnailUrl(r: ThumbnailReport): string {
+    if (r.thumbnail && (r.thumbnail.startsWith("http://") || r.thumbnail.startsWith("https://"))) {
+      return r.thumbnail;
+    }
+    if (r.videoUrl) {
+      const match =
+        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i.exec(r.videoUrl);
+      const vid = match?.[1] || (/^[a-zA-Z0-9_-]{11}$/.test(r.videoUrl) ? r.videoUrl : null);
+      if (vid) return `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+    }
+    return r.thumbnail?.startsWith("data:") ? "[Uploaded Thumbnail]" : (r.thumbnail || "");
+  }
+
+  function sanitizeCell(val: any, maxLen = 32000): string {
+    if (val == null) return "";
+    const s = String(val).trim();
+    return s.length > maxLen ? s.slice(0, maxLen) : s;
+  }
+
   async function exportToExcel() {
     if (reports.length === 0) return;
     try {
@@ -410,14 +429,14 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
 
       const data = reports.map((r, index) => ({
         "No.": index + 1,
-        "Video Title": r.title || "",
-        "Thumbnail URL": r.thumbnail || "",
-        "What made you click?": r.clickTrigger || "Title and Thumbnail",
-        "What question does the title create?": r.titleQuestion || "",
-        "What does the thumbnail communicate?": r.thumbnailMessage || "",
-        "What happens in the first 30 seconds?": r.first30Seconds || "",
-        "What is the central mystery/problem?": r.centralMystery || "",
-        "What appears to be the payoff?": r.payoff || "",
+        "Video Title": sanitizeCell(r.title),
+        "Thumbnail URL": sanitizeCell(resolveExportThumbnailUrl(r)),
+        "What made you click?": sanitizeCell(r.clickTrigger || "Title and Thumbnail"),
+        "What question does the title create?": sanitizeCell(r.titleQuestion),
+        "What does the thumbnail communicate?": sanitizeCell(r.thumbnailMessage),
+        "What happens in the first 30 seconds?": sanitizeCell(r.first30Seconds),
+        "What is the central mystery/problem?": sanitizeCell(r.centralMystery),
+        "What appears to be the payoff?": sanitizeCell(r.payoff),
         "Analysis Mode": r.analysisMode === "vision_ai" ? "Vision AI" : "Rule Engine",
       }));
 
@@ -480,7 +499,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
         [
           `"${i + 1}"`,
           `"${(r.title || "").replace(/"/g, '""')}"`,
-          `"${(r.thumbnail || "").replace(/"/g, '""')}"`,
+          `"${resolveExportThumbnailUrl(r).replace(/"/g, '""')}"`,
           `"${(r.clickTrigger || "Title and Thumbnail").replace(/"/g, '""')}"`,
           `"${(r.titleQuestion || "").replace(/"/g, '""')}"`,
           `"${(r.thumbnailMessage || "").replace(/"/g, '""')}"`,

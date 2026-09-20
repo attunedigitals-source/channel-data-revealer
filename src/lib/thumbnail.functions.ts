@@ -1035,6 +1035,14 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
       throw new Error("Please provide a valid YouTube video link or upload a thumbnail image.");
     }
 
+    // Preserve public image URL for reports (prevents oversized base64 strings in UI/Excel/network)
+    const displayThumbnailUrl =
+      finalThumbnail.startsWith("http://") || finalThumbnail.startsWith("https://")
+        ? finalThumbnail
+        : videoId
+        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        : "";
+
     let mimeType = "image/jpeg";
     let base64Data = "";
     if (finalThumbnail.startsWith("data:")) {
@@ -1122,7 +1130,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
               if (parsed.success) {
                 return {
                   title: data.title,
-                  thumbnail: finalThumbnail,
+                  thumbnail: displayThumbnailUrl || finalThumbnail,
                   videoUrl: data.videoUrl,
                   clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
                   titleQuestion: parsed.data.titleQuestion,
@@ -1198,7 +1206,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
             if (parsed.success) {
               return {
                 title: data.title,
-                thumbnail: finalThumbnail,
+                thumbnail: displayThumbnailUrl || finalThumbnail,
                 videoUrl: data.videoUrl,
                 clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
                 titleQuestion: parsed.data.titleQuestion,
@@ -1248,7 +1256,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
             if (parsed.success) {
               return {
                 title: data.title,
-                thumbnail: finalThumbnail,
+                thumbnail: displayThumbnailUrl || finalThumbnail,
                 videoUrl: data.videoUrl,
                 clickTrigger: parsed.data.clickTrigger || "Title and Thumbnail",
                 titleQuestion: parsed.data.titleQuestion,
@@ -1278,7 +1286,7 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
 
     return {
       title: data.title,
-      thumbnail: finalThumbnail,
+      thumbnail: displayThumbnailUrl || finalThumbnail,
       videoUrl: data.videoUrl,
       clickTrigger: synth.clickTrigger,
       titleQuestion: synth.titleQuestion,
