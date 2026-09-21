@@ -234,6 +234,36 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     };
     pickBest(videos);
 
+    // Search all-time top videos by viewCount to ensure whole-channel history is factored in
+    try {
+      const searchTop = await yt(
+        "search",
+        {
+          part: "snippet",
+          channelId: channel.id,
+          type: "video",
+          order: "viewCount",
+          maxResults: "10",
+        },
+        key,
+      );
+      if (searchTop?.items?.length) {
+        const topIds = searchTop.items.map((i: any) => i.id?.videoId).filter(Boolean);
+        if (topIds.length > 0) {
+          const topStats = await yt(
+            "videos",
+            { part: "snippet,contentDetails,statistics", id: topIds.join(",") },
+            key,
+          );
+          if (topStats?.items) {
+            pickBest(topStats.items);
+          }
+        }
+      }
+    } catch (searchErr) {
+      console.warn("API search by viewCount failed:", searchErr);
+    }
+
     const seen = new Set(videoIds);
     const remaining = allVideoIds.filter((id) => !seen.has(id));
     const chunks: string[][] = [];
@@ -378,7 +408,7 @@ function parseViewsText(str?: string): number {
   return isNaN(num) ? 0 : Math.round(num * mult);
 }
 
-async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorReport> {
+export async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorReport> {
   let url = targetUrl.trim();
   if (!url.startsWith("http")) {
     url = `https://www.youtube.com/${url.startsWith("@") ? url : "@" + url}`;
@@ -438,7 +468,7 @@ async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorRepo
   const subMatch =
     html.match(/"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"/)?.[1] ||
     html.match(/"subscriberCountText":\{"simpleText":"([^"]+)"/)?.[1] ||
-    html.match(/([0-9.,]+[MK]?\s*(?:million|thousand)?)\s*subscribers/i)?.[1];
+    html.match(/([0-9][0-9.,KMBkmb]*\s*(?:million|thousand)?)\s*subscribers/i)?.[1];
   if (subMatch) {
     subscribers = subMatch.replace(/subscribers?/i, "").trim();
   }
@@ -448,7 +478,7 @@ async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorRepo
   const vidMatch =
     html.match(/"videosCountText":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ||
     html.match(/"videoCountText":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ||
-    html.match(/([0-9.,]+)\s*videos/i)?.[1];
+    html.match(/([0-9][0-9.,KMBkmb]*)\s*videos/i)?.[1];
   if (vidMatch) {
     videoCount = vidMatch.trim();
   }
@@ -510,6 +540,87 @@ async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorRepo
           };
         }
       }
+    }
+  }
+
+  // Fetch Popular continuation to ensure all videos across channel history are factored into topVideoViews
+  const innertubeKey =
+    html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] ||
+    "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+  const popularTokenMatch =
+    html.match(/"text":"Popular"[^}]+"token":"([^"]+)"/) ||
+    html.match(/"chipViewModel":\{"text":"Popular".+?"token":"([^"]+)"/);
+
+  if (popularTokenMatch && innertubeKey) {
+    try {
+      const token = popularTokenMatch[1];
+      const browseRes = await fetch(
+        `https://www.youtube.com/youtubei/v1/browse?key=${innertubeKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+          body: JSON.stringify({
+            context: { client: { clientName: "WEB", clientVersion: "2.20240315.01.00" } },
+            continuation: token,
+          }),
+        },
+      );
+
+      if (browseRes.ok) {
+        const browseData = (await browseRes.json()) as any;
+        const actions = browseData.onResponseReceivedActions || [];
+        for (const a of actions) {
+          const reloadItems =
+            a.reloadContinuationItemsCommand?.continuationItems ||
+            a.appendContinuationItemsAction?.continuationItems ||
+            [];
+
+          for (const item of reloadItems) {
+            const lvm = item.richItemRenderer?.content?.lockupViewModel;
+            if (lvm) {
+              const vTitle = lvm.metadata?.lockupMetadataViewModel?.title?.content || "Untitled Video";
+              const vId = lvm.contentId;
+              const metaParts =
+                lvm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel
+                  ?.metadataRows?.[0]?.metadataParts || [];
+              const vViewsText = metaParts[0]?.text?.content || "";
+              const viewsNum = parseViewsText(vViewsText);
+
+              if (viewsNum > maxViews) {
+                maxViews = viewsNum;
+                topVideo = {
+                  title: vTitle,
+                  views: vViewsText || (viewsNum > 0 ? `${nf.format(viewsNum)} views` : "N/A"),
+                  url: vId ? `https://www.youtube.com/watch?v=${vId}` : "",
+                };
+              }
+            } else {
+              const vr = item.richItemRenderer?.content?.videoRenderer || item.videoRenderer;
+              if (vr) {
+                const vTitle = vr.title?.runs?.[0]?.text || "Untitled Video";
+                const vId = vr.videoId;
+                const vViewsText = vr.viewCountText?.simpleText || "";
+                const viewsNum = parseViewsText(vViewsText);
+
+                if (viewsNum > maxViews) {
+                  maxViews = viewsNum;
+                  topVideo = {
+                    title: vTitle,
+                    views: vViewsText || (viewsNum > 0 ? `${nf.format(viewsNum)} views` : "N/A"),
+                    url: vId ? `https://www.youtube.com/watch?v=${vId}` : "",
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (popErr) {
+      console.warn("Failed fetching popular continuation:", popErr);
     }
   }
 
@@ -678,6 +789,36 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
             }
           };
           pickBest(videos);
+
+          // Query search by viewCount across all videos on the channel
+          try {
+            const searchTop = await yt(
+              "search",
+              {
+                part: "snippet",
+                channelId: channel.id,
+                type: "video",
+                order: "viewCount",
+                maxResults: "10",
+              },
+              key,
+            );
+            if (searchTop?.items?.length) {
+              const topIds = searchTop.items.map((i: any) => i.id?.videoId).filter(Boolean);
+              if (topIds.length > 0) {
+                const topStats = await yt(
+                  "videos",
+                  { part: "snippet,contentDetails,statistics", id: topIds.join(",") },
+                  key,
+                );
+                if (topStats?.items) {
+                  pickBest(topStats.items);
+                }
+              }
+            }
+          } catch (searchErr) {
+            console.warn("API search by viewCount failed:", searchErr);
+          }
 
           const seen = new Set(videoIds);
           const remaining = allVideoIds.filter((id) => !seen.has(id)).slice(0, 500);
