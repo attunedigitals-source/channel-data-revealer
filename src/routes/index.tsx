@@ -21,6 +21,7 @@ import {
   Table as TableIcon,
   Trash2,
   Upload,
+  Users,
   X,
 } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
@@ -29,6 +30,7 @@ import {
   fetchVideoMetadata,
   type ThumbnailReport,
 } from "@/lib/thumbnail.functions";
+import { CompetitorSection } from "@/components/CompetitorSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -162,11 +164,36 @@ function Index() {
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
         <div className="mx-auto max-w-6xl px-6 py-12 sm:py-16">
-          <header className="flex items-center justify-between">
+          <header className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-2 text-primary">
               <Play className="h-5 w-5 fill-current" />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">Channel Sheet</span>
             </div>
+
+            <nav className="hidden sm:flex items-center gap-1 rounded-full border border-border/80 bg-background/60 backdrop-blur px-3 py-1 text-xs">
+              <a
+                href="#channel-sheet"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors"
+              >
+                Channel Data
+              </a>
+              <span className="text-border">•</span>
+              <a
+                href="#competition-analysis"
+                className="px-2.5 py-1 text-primary hover:text-primary/80 font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Competition Analysis
+              </a>
+              <span className="text-border">•</span>
+              <a
+                href="#thumbnail-lab"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors"
+              >
+                Thumbnail Lab
+              </a>
+            </nav>
+
             <Button
               variant="outline"
               size="sm"
@@ -241,7 +268,7 @@ function Index() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-6xl px-6 py-12">
+      <section id="channel-sheet" className="mx-auto max-w-6xl px-6 py-12">
         <div
           className="overflow-x-auto rounded-lg border border-border bg-card"
           style={{ boxShadow: "var(--shadow-panel)" }}
@@ -309,6 +336,11 @@ function Index() {
           </table>
         </div>
       </section>
+
+      <CompetitorSection
+        apiKey={apiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
 
       <ThumbnailSection
         apiKey={apiKey}
@@ -693,7 +725,7 @@ function ThumbnailSection({ apiKey, aiApiKey, onOpenKeyModal }: ThumbnailSection
   }
 
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-16">
+    <section id="thumbnail-lab" className="mx-auto max-w-6xl px-6 pb-16">
       <div
         className="rounded-lg border border-border bg-card p-6 sm:p-8"
         style={{ boxShadow: "var(--shadow-panel)" }}
