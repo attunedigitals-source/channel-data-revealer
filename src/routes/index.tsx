@@ -31,6 +31,7 @@ import {
   type ThumbnailReport,
 } from "@/lib/thumbnail.functions";
 import { CompetitorSection } from "@/components/CompetitorSection";
+import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,6 +193,14 @@ function Index() {
               >
                 Thumbnail Lab
               </a>
+              <span className="text-border">•</span>
+              <a
+                href="#title-generator"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Title Generator
+              </a>
             </nav>
 
             <Button
@@ -345,6 +354,11 @@ function Index() {
 
       <ThumbnailSection
         apiKey={apiKey}
+        aiApiKey={aiApiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
+
+      <TitleGeneratorSection
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
