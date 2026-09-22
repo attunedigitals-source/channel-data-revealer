@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getChannelNicheAndStyle } from "./classifier";
+import { getChannelNicheAndStyle, analyzeOutlierPackaging } from "./classifier";
 
 const Input = z.object({
   url: z.string().trim().min(3).max(300),
@@ -300,23 +300,34 @@ export type CompetitorReport = {
   topVideoViews: string;
   topVideoTitle?: string;
   topVideoUrl?: string;
+  // Outlier Video fields
+  outlierVideoTitle: string;
+  outlierVideoUrl: string;
+  outlierVideoViews: string;
+  outlierViewsSubRatio: string;
+  outlierVideoLength: string;
+  outlierTopic: string;
+  outlierTitleFormula: string;
+  outlierThumbnailConcept: string;
+  whyItWorked: string;
+  outlierMultiplier?: string;
   analysisSource: "api" | "public_scrape";
 };
 
 export function parseBatchChannelUrls(text: string): string[] {
   if (!text) return [];
-  const rawItems = text
-    .split(/[\r\n,;]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 
+  // Match full YouTube URLs anywhere in text
+  const ytUrlRegex =
+    /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:@[\w.-]+|channel\/[\w-]+|c\/[\w.-]+|user\/[\w.-]+|watch\?v=[\w-]+|shorts\/[\w-]+)|youtu\.be\/[\w-]+)/gi;
+
+  const matches = text.match(ytUrlRegex);
   const seen = new Set<string>();
   const validUrls: string[] = [];
 
-  for (let item of rawItems) {
-    item = item.trim();
-    if (!item) continue;
-    let url = item;
+  const addUrl = (raw: string) => {
+    let url = raw.trim();
+    if (!url) return;
     if (url.startsWith("@")) {
       url = `https://www.youtube.com/${url}`;
     } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -328,8 +339,23 @@ export function parseBatchChannelUrls(text: string): string[] {
         url = `https://${url}`;
       } else if (/^UC[\w-]{20,}$/.test(url)) {
         url = `https://www.youtube.com/channel/${url}`;
+      } else if (/^[a-zA-Z0-9_.-]{3,30}$/.test(url)) {
+        // If it's a plain string without @, ignore common column headers and pure numbers
+        const lower = url.toLowerCase();
+        const blacklist = [
+          "no", "no.", "channel", "name", "channelname", "subscribers", "subs",
+          "views", "videos", "videocount", "typicalvideolength",
+          "uploadfrequency", "frequency", "topvideo", "notes", "url",
+          "link", "youtube", "status", "category", "niche", "style",
+          "outlier", "topic", "formula", "thumbnail", "whyitworked", "true", "false",
+        ];
+        if (!blacklist.includes(lower) && isNaN(Number(url))) {
+          url = `https://www.youtube.com/@${url}`;
+        } else {
+          return;
+        }
       } else {
-        url = `https://www.youtube.com/@${url}`;
+        return;
       }
     }
     const cleanUrl = (url.split("?")[0] || url)
@@ -339,6 +365,29 @@ export function parseBatchChannelUrls(text: string): string[] {
     if (!seen.has(cleanUrl.toLowerCase())) {
       seen.add(cleanUrl.toLowerCase());
       validUrls.push(cleanUrl);
+    }
+  };
+
+  // If explicit YouTube links exist, prioritize them
+  if (matches && matches.length > 0) {
+    for (const m of matches) {
+      addUrl(m);
+    }
+  }
+
+  // Also parse line by line / comma for handles starting with @ or plain handles
+  const rawItems = text
+    .split(/[\r\n,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const item of rawItems) {
+    if (item.startsWith("@")) {
+      addUrl(item);
+    } else if (/^UC[\w-]{20,}$/.test(item)) {
+      addUrl(item);
+    } else if (!matches || matches.length === 0) {
+      addUrl(item);
     }
   }
 
@@ -361,15 +410,203 @@ function parseDurationText(str?: string): number {
   return 0;
 }
 
-function parseViewsText(str?: string): number {
+export function parseViewsText(str?: string): number {
   if (!str) return 0;
   const cleaned = str.replace(/views?/i, "").trim().toLowerCase();
   let mult = 1;
-  if (cleaned.endsWith("k")) mult = 1e3;
-  else if (cleaned.endsWith("m")) mult = 1e6;
-  else if (cleaned.endsWith("b")) mult = 1e9;
+  if (/(?:million|\bm\b)/i.test(cleaned) || cleaned.endsWith("m")) mult = 1e6;
+  else if (/(?:thousand|\bk\b)/i.test(cleaned) || cleaned.endsWith("k")) mult = 1e3;
+  else if (/(?:billion|\bb\b)/i.test(cleaned) || cleaned.endsWith("b")) mult = 1e9;
   const num = parseFloat(cleaned.replace(/[^\d.]/g, ""));
   return isNaN(num) ? 0 : Math.round(num * mult);
+}
+
+export function parseSubscribersToNumber(subscribers?: string): number {
+  if (!subscribers) return 0;
+  const s = subscribers.trim().toLowerCase();
+  if (s.includes("hidden") || s === "n/a") return 0;
+  let mult = 1;
+  if (/(?:million|\bm\b)/i.test(s) || s.endsWith("m")) mult = 1e6;
+  else if (/(?:thousand|\bk\b)/i.test(s) || s.endsWith("k")) mult = 1e3;
+  else if (/(?:billion|\bb\b)/i.test(s) || s.endsWith("b")) mult = 1e9;
+  const num = parseFloat(s.replace(/subscribers?/i, "").replace(/[^\d.]/g, ""));
+  return isNaN(num) ? 0 : Math.round(num * mult);
+}
+
+export type RecentVideoCandidate = {
+  id: string;
+  title: string;
+  viewsText: string;
+  viewsNum: number;
+  durationText: string;
+  durationSec: number;
+  url: string;
+  publishedDate?: string;
+  publishedText?: string;
+};
+
+export async function detectOutlierVideo({
+  candidates,
+  subscribersText,
+  subscriberCount,
+  uploadFrequency,
+  channelName,
+  customAiKey,
+}: {
+  candidates: RecentVideoCandidate[];
+  subscribersText: string;
+  subscriberCount?: number;
+  uploadFrequency: string;
+  channelName: string;
+  customAiKey?: string;
+}): Promise<{
+  outlierVideoTitle: string;
+  outlierVideoUrl: string;
+  outlierVideoViews: string;
+  outlierViewsSubRatio: string;
+  outlierVideoLength: string;
+  outlierTopic: string;
+  outlierTitleFormula: string;
+  outlierThumbnailConcept: string;
+  whyItWorked: string;
+  outlierMultiplier: string;
+}> {
+  if (!candidates || candidates.length === 0) {
+    return {
+      outlierVideoTitle: "N/A",
+      outlierVideoUrl: "",
+      outlierVideoViews: "N/A",
+      outlierViewsSubRatio: "N/A",
+      outlierVideoLength: "N/A",
+      outlierTopic: "N/A",
+      outlierTitleFormula: "N/A",
+      outlierThumbnailConcept: "N/A",
+      whyItWorked: "N/A",
+      outlierMultiplier: "1.0x",
+    };
+  }
+
+  // Filter: prioritize long-form videos (> 60s) unless channel has only shorts
+  const longForm = candidates.filter(
+    (c) => c.durationSec > 60 || (!c.durationSec && !c.title.toLowerCase().includes("#shorts")),
+  );
+  const pool = longForm.length >= 3 ? longForm : candidates;
+
+  // Determine adaptive window size based on upload frequency and volume:
+  // - High frequency / daily uploaders (> 2.5 vids/wk or > 10/mo): ~18-25 videos (~3-4 weeks)
+  // - Regular / weekly uploaders (0.8 - 2.5 vids/wk or 3-10/mo): ~10-14 videos (~2-3 months)
+  // - Low frequency / sporadic / high-effort (< 0.8 vids/wk or < 3/mo): ~6-8 videos (~6-12 months)
+  let windowSize = 12;
+  const freqLower = (uploadFrequency || "").toLowerCase();
+  const freqMatch = freqLower.match(/([\d.]+)\s*videos?\/(week|month)/i);
+  if (freqMatch && freqMatch[1]) {
+    const num = parseFloat(freqMatch[1]);
+    const unit = freqMatch[2]?.toLowerCase();
+    if (unit === "week") {
+      if (num >= 2.5) windowSize = 22;
+      else if (num >= 0.8) windowSize = 12;
+      else windowSize = 7;
+    } else if (unit === "month") {
+      if (num >= 10) windowSize = 22;
+      else if (num >= 3) windowSize = 12;
+      else windowSize = 7;
+    }
+  } else if (freqLower.includes("2-3 videos/week") || freqLower.includes("daily")) {
+    windowSize = 22;
+  } else if (freqLower.includes("1-2 videos/week")) {
+    windowSize = 12;
+  } else if (freqLower.includes("month") || freqLower.includes("sporadic")) {
+    windowSize = 7;
+  }
+
+  // Slice recent window bounded by available candidate pool
+  const effectiveWindowSize = Math.min(Math.max(windowSize, 3), pool.length);
+  const recentWindow = pool.slice(0, effectiveWindowSize);
+
+  // If the newest video (index 0) was uploaded less than 24-48 hours ago and hasn't finished
+  // its initial view surge, avoid letting it drag down the median baseline calculation
+  const isWarmingUp = (c: RecentVideoCandidate) => {
+    if (!c.publishedText) return false;
+    const pt = c.publishedText.toLowerCase();
+    return pt.includes("hour") || pt.includes("minute") || pt.includes("1 day ago");
+  };
+
+  const baselineCandidates =
+    recentWindow.length > 3 && isWarmingUp(recentWindow[0]!)
+      ? recentWindow.slice(1)
+      : recentWindow;
+
+  // Compute Median Views of recent window (channel baseline for current audience)
+  const viewsList = baselineCandidates.map((v) => v.viewsNum).filter((v) => v > 0);
+  let medianViews = 0;
+  if (viewsList.length > 0) {
+    const sorted = [...viewsList].sort((a, b) => a - b);
+    medianViews = sorted[Math.floor(sorted.length / 2)]!;
+  }
+
+  // Find outlier candidate with the highest views in recent window
+  let best = recentWindow[0]!;
+  for (const v of recentWindow) {
+    if (v.viewsNum > best.viewsNum) {
+      best = v;
+    }
+  }
+
+  const multiplier = medianViews > 0 ? best.viewsNum / medianViews : 1.0;
+  const multText = `${multiplier.toFixed(1)}x`;
+
+  // Views / Subscribers Ratio
+  const subsNum =
+    subscriberCount && subscriberCount > 0
+      ? subscriberCount
+      : parseSubscribersToNumber(subscribersText);
+
+  let viewsSubRatioText = "N/A (Hidden Subs)";
+  if (subsNum > 0 && best.viewsNum > 0) {
+    const ratio = (best.viewsNum / subsNum) * 100;
+    viewsSubRatioText =
+      ratio >= 100
+        ? `${ratio.toFixed(0)}% (${(ratio / 100).toFixed(1)}x)`
+        : `${ratio.toFixed(1)}%`;
+  }
+
+  const viewsFormatted =
+    best.viewsNum >= 1e6
+      ? `${(best.viewsNum / 1e6).toFixed(1)}M views`
+      : best.viewsNum >= 1e3
+        ? `${(best.viewsNum / 1e3).toFixed(1)}K views`
+        : best.viewsNum > 0
+          ? `${nf.format(best.viewsNum)} views`
+          : best.viewsText || "N/A";
+
+  const videoLength = best.durationText || (best.durationSec ? formatDuration(best.durationSec) : "N/A");
+
+  // Qualitative Packaging Synthesis
+  const packaging = await analyzeOutlierPackaging({
+    videoTitle: best.title,
+    videoViewsText: viewsFormatted,
+    videoViewsNum: best.viewsNum,
+    medianViewsNum: medianViews,
+    multiplier,
+    subscribersText,
+    viewsSubRatioText,
+    channelName,
+    durationText: videoLength,
+    customAiKey,
+  });
+
+  return {
+    outlierVideoTitle: best.title,
+    outlierVideoUrl: best.url || (best.id ? `https://www.youtube.com/watch?v=${best.id}` : ""),
+    outlierVideoViews: viewsFormatted,
+    outlierViewsSubRatio: viewsSubRatioText,
+    outlierVideoLength: videoLength,
+    outlierTopic: packaging.outlierTopic,
+    outlierTitleFormula: packaging.outlierTitleFormula,
+    outlierThumbnailConcept: packaging.outlierThumbnailConcept,
+    whyItWorked: packaging.whyItWorked,
+    outlierMultiplier: multText,
+  };
 }
 
 export type PopularVideoItem = {
@@ -521,7 +758,7 @@ export async function getPopularVideosFromChannel(targetUrl: string): Promise<Po
   }
 }
 
-export async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorReport> {
+export async function scrapePublicCompetitor(targetUrl: string, customAiKey?: string): Promise<CompetitorReport> {
   let url = targetUrl.trim();
   const vidMatch =
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/ ]{11})/i.exec(
@@ -631,6 +868,7 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
   const contents = videosTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
 
   const durations: number[] = [];
+  const recentCandidates: RecentVideoCandidate[] = [];
   let topVideo: { title: string; views: string; url: string } | null = null;
   let maxViews = -1;
 
@@ -645,12 +883,26 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
       const metaParts =
         lvm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]
           ?.metadataParts || [];
-      const vViewsText = metaParts[0]?.text?.content || "";
+      const vViewsText = metaParts[0]?.accessibilityLabel || metaParts[0]?.text?.content || "";
+      const vPublishedText = metaParts[1]?.text?.content || "";
 
       const durSec = parseDurationText(vDurationText);
       if (durSec > 0) durations.push(durSec);
 
       const viewsNum = parseViewsText(vViewsText);
+      if (vId) {
+        recentCandidates.push({
+          id: vId,
+          title: vTitle,
+          viewsText: vViewsText,
+          viewsNum,
+          durationText: vDurationText,
+          durationSec: durSec,
+          url: `https://www.youtube.com/watch?v=${vId}`,
+          publishedText: vPublishedText,
+        });
+      }
+
       if (viewsNum > maxViews) {
         maxViews = viewsNum;
         topVideo = {
@@ -663,14 +915,32 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
       const vr = item.richItemRenderer?.content?.videoRenderer || item.videoRenderer;
       if (vr) {
         const vTitle = vr.title?.runs?.[0]?.text || "Untitled Video";
-        const vDurationText = vr.lengthText?.simpleText || "";
+        const vDurationText =
+          vr.lengthText?.simpleText ||
+          vr.thumbnailOverlays?.find((o: any) => o.thumbnailOverlayTimeStatusRenderer)
+            ?.thumbnailOverlayTimeStatusRenderer?.text?.simpleText ||
+          "";
         const vId = vr.videoId;
         const vViewsText = vr.viewCountText?.simpleText || "";
+        const vPublishedText = vr.publishedTimeText?.simpleText || "";
 
         const durSec = parseDurationText(vDurationText);
         if (durSec > 0) durations.push(durSec);
 
         const viewsNum = parseViewsText(vViewsText);
+        if (vId) {
+          recentCandidates.push({
+            id: vId,
+            title: vTitle,
+            viewsText: vViewsText,
+            viewsNum,
+            durationText: vDurationText,
+            durationSec: durSec,
+            url: `https://www.youtube.com/watch?v=${vId}`,
+            publishedText: vPublishedText,
+          });
+        }
+
         if (viewsNum > maxViews) {
           maxViews = viewsNum;
           topVideo = {
@@ -714,6 +984,15 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
           ? "~1 video/month"
           : "N/A";
 
+  // Calculate Outlier Video (focused strictly on recent audience views with adaptive parameters)
+  const outlier = await detectOutlierVideo({
+    candidates: recentCandidates,
+    subscribersText: subscribers,
+    uploadFrequency,
+    channelName,
+    customAiKey,
+  });
+
   return {
     id: cleanBase,
     channelName,
@@ -726,6 +1005,16 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
     topVideoViews: topVideo?.views || "N/A",
     topVideoTitle: topVideo?.title || "N/A",
     topVideoUrl: topVideo?.url || "",
+    outlierVideoTitle: outlier.outlierVideoTitle,
+    outlierVideoUrl: outlier.outlierVideoUrl,
+    outlierVideoViews: outlier.outlierVideoViews,
+    outlierViewsSubRatio: outlier.outlierViewsSubRatio,
+    outlierVideoLength: outlier.outlierVideoLength,
+    outlierTopic: outlier.outlierTopic,
+    outlierTitleFormula: outlier.outlierTitleFormula,
+    outlierThumbnailConcept: outlier.outlierThumbnailConcept,
+    whyItWorked: outlier.whyItWorked,
+    outlierMultiplier: outlier.outlierMultiplier,
     analysisSource: "public_scrape",
   };
 }
@@ -735,6 +1024,7 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
     z.object({
       url: z.string().trim().min(2).max(300),
       apiKey: z.string().trim().optional(),
+      aiApiKey: z.string().trim().optional(),
     }).parse(input),
   )
   .handler(async ({ data }): Promise<CompetitorReport> => {
@@ -902,6 +1192,33 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
             channel.snippet?.thumbnails?.default?.url ||
             "";
 
+          const apiCandidates: RecentVideoCandidate[] = videos.map((v) => {
+            const durSec = isoDurationToSeconds(v.contentDetails?.duration ?? "");
+            const viewsNum = Number(v.statistics?.viewCount ?? 0);
+            return {
+              id: v.id,
+              title: v.snippet?.title ?? "Untitled Video",
+              viewsText:
+                viewsNum >= 1e6
+                  ? `${(viewsNum / 1e6).toFixed(1)}M views`
+                  : `${nf.format(viewsNum)} views`,
+              viewsNum,
+              durationText: formatDuration(durSec),
+              durationSec: durSec,
+              url: `https://www.youtube.com/watch?v=${v.id}`,
+              publishedDate: v.snippet?.publishedAt,
+            };
+          });
+
+          const outlier = await detectOutlierVideo({
+            candidates: apiCandidates,
+            subscribersText: subscribers,
+            subscriberCount: subCount,
+            uploadFrequency,
+            channelName: channel.snippet?.title ?? "Unknown",
+            customAiKey: data.aiApiKey,
+          });
+
           return {
             id: channel.id || canonicalUrl,
             channelName: channel.snippet?.title ?? "Unknown",
@@ -918,6 +1235,16 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
               : "N/A",
             topVideoTitle: best?.snippet?.title ?? "N/A",
             topVideoUrl: best ? `https://www.youtube.com/watch?v=${best.id}` : "",
+            outlierVideoTitle: outlier.outlierVideoTitle,
+            outlierVideoUrl: outlier.outlierVideoUrl,
+            outlierVideoViews: outlier.outlierVideoViews,
+            outlierViewsSubRatio: outlier.outlierViewsSubRatio,
+            outlierVideoLength: outlier.outlierVideoLength,
+            outlierTopic: outlier.outlierTopic,
+            outlierTitleFormula: outlier.outlierTitleFormula,
+            outlierThumbnailConcept: outlier.outlierThumbnailConcept,
+            whyItWorked: outlier.whyItWorked,
+            outlierMultiplier: outlier.outlierMultiplier,
             analysisSource: "api",
           };
         }
@@ -927,7 +1254,7 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
     }
 
     // Fallback path: Public Web Scraper
-    return scrapePublicCompetitor(data.url);
+    return scrapePublicCompetitor(data.url, data.aiApiKey);
   });
 
 

@@ -23,6 +23,12 @@ import {
   Eye,
   Calendar,
   X,
+  Flame,
+  TrendingUp,
+  Lightbulb,
+  Zap,
+  Info,
+  FileText,
 } from "lucide-react";
 import {
   analyzeCompetitorChannel,
@@ -43,6 +49,14 @@ const COMPETITOR_COLUMNS = [
   { key: "typicalVideoLength", label: "Typical Video Length" },
   { key: "uploadFrequency", label: "Upload Frequency" },
   { key: "topVideoViews", label: "Top Video Views" },
+  { key: "outlierVideo", label: "Outlier Video" },
+  { key: "outlierVideoViews", label: "Outlier Video Views" },
+  { key: "outlierViewsSubRatio", label: "Outlier Video Views/Subscribers Ratio" },
+  { key: "outlierVideoLength", label: "Outlier Video Length" },
+  { key: "outlierTopic", label: "Outlier Topic" },
+  { key: "outlierTitleFormula", label: "Outlier Title Formula" },
+  { key: "outlierThumbnailConcept", label: "Outlier Thumbnail Concept" },
+  { key: "whyItWorked", label: "Why it might have worked" },
 ] as const;
 
 const openExternal = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -66,15 +80,24 @@ const SAMPLE_COMPETITORS = [
 
 interface CompetitorSectionProps {
   apiKey?: string;
+  aiApiKey?: string;
   onOpenKeyModal?: () => void;
 }
 
-export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionProps) {
+export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: CompetitorSectionProps) {
   const [tabMode, setTabMode] = useState<"single" | "bulk">("single");
   const [singleUrl, setSingleUrl] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [reports, setReports] = useState<CompetitorReport[]>([]);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [selectedDetailReport, setSelectedDetailReport] = useState<CompetitorReport | null>(null);
+
+  // File Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
 
   // Bulk state
   const [isBatchRunning, setIsBatchRunning] = useState(false);
@@ -86,11 +109,113 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
   const [batchError, setBatchError] = useState<string | null>(null);
   const abortBatchRef = useRef(false);
 
+  function downloadSampleTemplate() {
+    const csvContent = "\uFEFFChannel Name,Channel URL,Notes\r\nVeritasium,https://www.youtube.com/@veritasium,Science & Physics\r\nMKBHD,https://www.youtube.com/@mkbhd,Consumer Tech\r\nCleo Abram,https://www.youtube.com/@cleoabram,Optimistic Tech\r\nKurzgesagt,https://www.youtube.com/@Kurzgesagt,Animation & Science\r\n";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "competitor_channels_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleFileUpload(file: File) {
+    if (!file) return;
+    setFileUploadError(null);
+    setFileLoading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      let textContent = "";
+
+      if (ext === "csv" || ext === "xlsx" || ext === "xls") {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const detectedFromSheets: string[] = [];
+
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+          const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          if (!jsonRows || jsonRows.length === 0) continue;
+
+          // Check if header row exists with a URL/channel column
+          const headerRow = jsonRows[0];
+          let targetColIdx = -1;
+          if (Array.isArray(headerRow)) {
+            for (let c = 0; c < headerRow.length; c++) {
+              const h = String(headerRow[c] ?? "").trim().toLowerCase();
+              if (
+                h.includes("url") ||
+                h.includes("link") ||
+                h.includes("channel") ||
+                h.includes("youtube") ||
+                h.includes("handle")
+              ) {
+                targetColIdx = c;
+                break;
+              }
+            }
+          }
+
+          if (targetColIdx !== -1) {
+            for (let r = 1; r < jsonRows.length; r++) {
+              const cell = jsonRows[r]?.[targetColIdx];
+              if (cell != null) {
+                const s = String(cell).trim();
+                if (s) detectedFromSheets.push(s);
+              }
+            }
+          } else {
+            // Fallback: search all cells in row for YouTube links or handles
+            for (const row of jsonRows) {
+              if (Array.isArray(row)) {
+                for (const cell of row) {
+                  if (cell != null) {
+                    const s = String(cell).trim();
+                    if (s.includes("youtube.com") || s.startsWith("@") || /^UC[\w-]{20,}$/.test(s)) {
+                      detectedFromSheets.push(s);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        textContent = detectedFromSheets.length > 0 ? detectedFromSheets.join("\n") : await file.text();
+      } else {
+        textContent = await file.text();
+      }
+
+      const detectedUrls = parseBatchChannelUrls(textContent);
+      if (detectedUrls.length === 0) {
+        setFileUploadError(
+          `No YouTube channel URLs or handles found in "${file.name}". Please ensure file contains channel links (e.g. youtube.com/@channel) or @handles.`,
+        );
+      } else {
+        setUploadedFileName(`${file.name} (${detectedUrls.length} channels)`);
+        setBulkText((prev) => {
+          const existing = prev.trim();
+          const newText = detectedUrls.join("\n");
+          return existing ? `${existing}\n${newText}` : newText;
+        });
+      }
+    } catch (err: any) {
+      console.error("File upload error:", err);
+      setFileUploadError(`Failed reading file: ${err?.message || "Invalid file format"}`);
+    } finally {
+      setFileLoading(false);
+    }
+  }
+
   const runAnalysis = useServerFn(analyzeCompetitorChannel);
 
   const singleMutation = useMutation({
     mutationFn: (url: string) =>
-      runAnalysis({ data: { url, apiKey: apiKey || undefined } }),
+      runAnalysis({ data: { url, apiKey: apiKey || undefined, aiApiKey: aiApiKey || undefined } }),
     onSuccess: (report) => {
       setReports((prev) => [
         report,
@@ -139,7 +264,7 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
 
       try {
         const report = await runAnalysis({
-          data: { url: currentTarget, apiKey: apiKey || undefined },
+          data: { url: currentTarget, apiKey: apiKey || undefined, aiApiKey: aiApiKey || undefined },
         });
 
         if (!abortBatchRef.current) {
@@ -209,21 +334,41 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
         "Top Video Views": sanitizeCell(r.topVideoViews),
         "Top Video Title": sanitizeCell(r.topVideoTitle || "N/A"),
         "Top Video URL": sanitizeCell(r.topVideoUrl || ""),
+        "Outlier Video": sanitizeCell(r.outlierVideoTitle || "N/A"),
+        "Outlier Video URL": sanitizeCell(r.outlierVideoUrl || ""),
+        "Outlier Video Views": sanitizeCell(r.outlierVideoViews || "N/A"),
+        "Outlier Multiplier": sanitizeCell(r.outlierMultiplier || "N/A"),
+        "Outlier Video Views/Subscribers Ratio": sanitizeCell(r.outlierViewsSubRatio || "N/A"),
+        "Outlier Video Length": sanitizeCell(r.outlierVideoLength || "N/A"),
+        "Outlier Topic": sanitizeCell(r.outlierTopic || "N/A"),
+        "Outlier Title Formula": sanitizeCell(r.outlierTitleFormula || "N/A"),
+        "Outlier Thumbnail Concept": sanitizeCell(r.outlierThumbnailConcept || "N/A"),
+        "Why It Might Have Worked": sanitizeCell(r.whyItWorked || "N/A"),
       }));
 
       const worksheet = utils.json_to_sheet(data);
 
       worksheet["!cols"] = [
         { wch: 6 },
-        { wch: 28 },
-        { wch: 36 },
-        { wch: 18 },
+        { wch: 26 },
+        { wch: 34 },
         { wch: 16 },
-        { wch: 24 },
-        { wch: 22 },
+        { wch: 14 },
         { wch: 20 },
-        { wch: 45 },
+        { wch: 20 },
+        { wch: 18 },
         { wch: 40 },
+        { wch: 35 },
+        { wch: 45 },
+        { wch: 35 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 30 },
+        { wch: 20 },
+        { wch: 28 },
+        { wch: 32 },
+        { wch: 40 },
+        { wch: 55 },
       ];
 
       const workbook = utils.book_new();
@@ -263,6 +408,16 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
       "Top Video Views",
       "Top Video Title",
       "Top Video URL",
+      "Outlier Video",
+      "Outlier Video URL",
+      "Outlier Video Views",
+      "Outlier Multiplier",
+      "Outlier Video Views/Subscribers Ratio",
+      "Outlier Video Length",
+      "Outlier Topic",
+      "Outlier Title Formula",
+      "Outlier Thumbnail Concept",
+      "Why It Might Have Worked",
     ];
 
     const escapeCsv = (val: string | number) => {
@@ -284,6 +439,16 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
       escapeCsv(r.topVideoViews),
       escapeCsv(r.topVideoTitle || "N/A"),
       escapeCsv(r.topVideoUrl || ""),
+      escapeCsv(r.outlierVideoTitle || "N/A"),
+      escapeCsv(r.outlierVideoUrl || ""),
+      escapeCsv(r.outlierVideoViews || "N/A"),
+      escapeCsv(r.outlierMultiplier || "N/A"),
+      escapeCsv(r.outlierViewsSubRatio || "N/A"),
+      escapeCsv(r.outlierVideoLength || "N/A"),
+      escapeCsv(r.outlierTopic || "N/A"),
+      escapeCsv(r.outlierTitleFormula || "N/A"),
+      escapeCsv(r.outlierThumbnailConcept || "N/A"),
+      escapeCsv(r.whyItWorked || "N/A"),
     ]);
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((row) => row.join(","))].join("\r\n");
@@ -418,6 +583,133 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                     </Button>
                   )}
                 </div>
+              </div>
+
+              {/* File Upload Dropzone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(true);
+                }}
+                onDragLeave={() => setIsDraggingFile(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(false);
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+                onClick={(e) => {
+                  // Only trigger file picker if not clicking an internal button
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  fileInputRef.current?.click();
+                }}
+                className={`mb-4 rounded-xl border-2 border-dashed p-4 text-center transition-all cursor-pointer ${
+                  isDraggingFile
+                    ? "border-primary bg-primary/10 shadow-inner"
+                    : "border-border/80 bg-background/50 hover:border-primary/50 hover:bg-background/80"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFileUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 border border-primary/20">
+                      {fileLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <span>Upload Channels Spreadsheet or Text File</span>
+                        <span className="text-[10px] font-normal text-muted-foreground font-mono">(.xlsx, .csv, .txt)</span>
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Drag and drop your spreadsheet or click anywhere to parse YouTube channel links or @handles automatically.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                    {uploadedFileName && (
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="secondary"
+                          className="text-[11px] py-1 px-2.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 flex items-center gap-1 font-medium"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span className="truncate max-w-[150px]">{uploadedFileName}</span>
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadedFileName(null);
+                          }}
+                          className="text-muted-foreground hover:text-foreground p-0.5"
+                          title="Dismiss file tag"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadSampleTemplate();
+                      }}
+                      className="h-8 text-xs gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground border border-border/70"
+                      title="Download sample CSV template"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={fileLoading || isBatchRunning}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                      className="h-8 text-xs gap-1.5 cursor-pointer shadow-sm hover:border-primary/50"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-primary" />
+                      Browse File
+                    </Button>
+                  </div>
+                </div>
+
+                {fileUploadError && (
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2 text-left">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{fileUploadError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Channel URLs (pasted or uploaded):
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  One per line or comma-separated
+                </span>
               </div>
 
               <Textarea
@@ -622,13 +914,13 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
               className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm"
               style={{ boxShadow: "var(--shadow-panel)" }}
             >
-              <table className="w-full min-w-[950px] border-collapse text-sm">
+              <table className="w-full min-w-[1700px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/60">
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-12">
                       No.
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">
                       Channel Name
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -643,8 +935,36 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Upload Frequency
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[180px]">
                       Top Video Views
+                    </th>
+                    {/* Outlier Video Columns */}
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-amber-500/90 min-w-[220px]">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="h-3.5 w-3.5 text-amber-500" />
+                        <span>Outlier Video</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-amber-500/90 min-w-[140px]">
+                      Outlier Video Views
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-emerald-500/90 min-w-[160px]">
+                      Outlier Views/Subs Ratio
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[120px]">
+                      Outlier Video Length
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[160px]">
+                      Outlier Topic
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[180px]">
+                      Outlier Title Formula
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[220px]">
+                      Outlier Thumbnail Concept
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[260px]">
+                      Why it might have worked
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-12"></th>
                   </tr>
@@ -684,7 +1004,7 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                               <span>{r.channelName}</span>
                               <ExternalLink className="h-3 w-3 opacity-50 shrink-0" />
                             </a>
-                            <span className="text-[11px] text-muted-foreground block truncate max-w-[220px]">
+                            <span className="text-[11px] text-muted-foreground block truncate max-w-[200px]">
                               {r.channelUrl.replace("https://www.youtube.com/", "")}
                             </span>
                           </div>
@@ -732,13 +1052,112 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={r.topVideoUrl ? openExternal(r.topVideoUrl) : undefined}
-                              className="text-[11px] text-muted-foreground hover:text-foreground line-clamp-1 mt-0.5 max-w-[240px]"
+                              className="text-[11px] text-muted-foreground hover:text-foreground line-clamp-1 mt-0.5 max-w-[200px]"
                               title={r.topVideoTitle}
                             >
                               {r.topVideoTitle}
                             </a>
                           )}
                         </div>
+                      </td>
+
+                      {/* Outlier Video */}
+                      <td className="px-4 py-4 align-top max-w-[230px]">
+                        {r.outlierVideoTitle && r.outlierVideoTitle !== "N/A" ? (
+                          <div>
+                            <a
+                              href={r.outlierVideoUrl || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={r.outlierVideoUrl ? openExternal(r.outlierVideoUrl) : undefined}
+                              className="font-medium text-xs text-foreground hover:text-primary transition-colors line-clamp-2 flex items-start gap-1.5"
+                              title={r.outlierVideoTitle}
+                            >
+                              <Play className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{r.outlierVideoTitle}</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDetailReport(r)}
+                              className="text-[10px] text-amber-500 hover:underline mt-1 inline-flex items-center gap-0.5 cursor-pointer font-medium"
+                            >
+                              <Lightbulb className="h-2.5 w-2.5" /> Strategy Breakdown
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
+                      </td>
+
+                      {/* Outlier Video Views */}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-bold text-foreground font-mono">
+                            {r.outlierVideoViews}
+                          </span>
+                          {r.outlierMultiplier && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-500 border-amber-500/25 font-mono w-fit"
+                            >
+                              {r.outlierMultiplier} baseline
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Outlier Views/Subscribers Ratio */}
+                      <td className="px-4 py-4 align-top">
+                        <Badge
+                          variant="secondary"
+                          className="font-semibold text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-mono"
+                        >
+                          {r.outlierViewsSubRatio}
+                        </Badge>
+                      </td>
+
+                      {/* Outlier Video Length */}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>{r.outlierVideoLength}</span>
+                        </div>
+                      </td>
+
+                      {/* Outlier Topic */}
+                      <td className="px-4 py-4 align-top max-w-[170px]">
+                        <span className="inline-block text-xs font-medium text-foreground bg-secondary/70 px-2 py-0.5 rounded border border-border/70 line-clamp-2">
+                          {r.outlierTopic}
+                        </span>
+                      </td>
+
+                      {/* Outlier Title Formula */}
+                      <td className="px-4 py-4 align-top max-w-[180px]">
+                        <span className="inline-block text-[11px] font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 line-clamp-2">
+                          {r.outlierTitleFormula}
+                        </span>
+                      </td>
+
+                      {/* Outlier Thumbnail Concept */}
+                      <td className="px-4 py-4 align-top max-w-[210px]">
+                        <p
+                          className="text-xs text-muted-foreground line-clamp-2 cursor-pointer hover:text-foreground transition-colors"
+                          title="Click to view full strategy"
+                          onClick={() => setSelectedDetailReport(r)}
+                        >
+                          {r.outlierThumbnailConcept}
+                        </p>
+                      </td>
+
+                      {/* Why it might have worked */}
+                      <td className="px-4 py-4 align-top min-w-[240px] max-w-[320px]">
+                        <p
+                          className="text-xs text-muted-foreground leading-relaxed line-clamp-3 cursor-pointer hover:text-foreground transition-colors"
+                          title="Click to view full strategy"
+                          onClick={() => setSelectedDetailReport(r)}
+                        >
+                          {r.whyItWorked}
+                        </p>
                       </td>
 
                       {/* Remove */}
@@ -843,7 +1262,7 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                         <span className="text-[11px] font-semibold text-primary uppercase tracking-wider flex items-center gap-1">
                           <Eye className="h-3 w-3" /> Top Video Views
                         </span>
-                        <Badge variant="secondary" className="text-xs font-bold px-2 py-0 bg-primary/15 text-primary border-0">
+                        <Badge variant="secondary" className="text-xs font-bold px-2 py-0 bg-primary/15 text-primary border-0 font-mono">
                           {r.topVideoViews}
                         </Badge>
                       </div>
@@ -858,6 +1277,68 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
                           {r.topVideoTitle}
                         </a>
                       )}
+                    </div>
+
+                    {/* Recent Outlier Video Feature */}
+                    <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3.5 flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                          <Flame className="h-3.5 w-3.5 text-amber-500" /> Recent Outlier
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {r.outlierMultiplier && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-500 border-amber-500/30 font-mono">
+                              {r.outlierMultiplier}
+                            </Badge>
+                          )}
+                          <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0 bg-emerald-500/15 text-emerald-500 border-0 font-mono">
+                            {r.outlierViewsSubRatio}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {r.outlierVideoTitle && r.outlierVideoTitle !== "N/A" && (
+                        <div>
+                          <a
+                            href={r.outlierVideoUrl || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={r.outlierVideoUrl ? openExternal(r.outlierVideoUrl) : undefined}
+                            className="text-xs text-foreground hover:text-amber-500 block font-semibold line-clamp-2 transition-colors"
+                          >
+                            {r.outlierVideoTitle}
+                          </a>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground font-mono">
+                            <span>{r.outlierVideoViews}</span>
+                            <span>•</span>
+                            <span>{r.outlierVideoLength}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Topic & Formula Badges */}
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-amber-500/15">
+                        <span className="text-[10px] bg-background/80 text-foreground px-2 py-0.5 rounded border border-border/60">
+                          {r.outlierTopic}
+                        </span>
+                        <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded border border-amber-500/20 font-medium">
+                          {r.outlierTitleFormula}
+                        </span>
+                      </div>
+
+                      {/* Why it worked snippet */}
+                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                        {r.whyItWorked}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDetailReport(r)}
+                        className="text-[11px] text-amber-500 hover:underline inline-flex items-center gap-1 font-medium self-start cursor-pointer mt-0.5"
+                      >
+                        <Lightbulb className="h-3 w-3" />
+                        Full Strategy Breakdown
+                      </button>
                     </div>
                   </div>
 
@@ -883,6 +1364,150 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
             </div>
           )}
         </div>
+
+        {/* Outlier Strategy Deep Dive Modal */}
+        {selectedDetailReport && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setSelectedDetailReport(null)}
+          >
+            <div
+              className="relative w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Close Button */}
+              <button
+                type="button"
+                onClick={() => setSelectedDetailReport(null)}
+                className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 pr-8 pb-4 border-b border-border">
+                {selectedDetailReport.avatarUrl ? (
+                  <img
+                    src={selectedDetailReport.avatarUrl}
+                    alt={selectedDetailReport.channelName}
+                    className="h-12 w-12 rounded-full border border-border object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                    {selectedDetailReport.channelName.charAt(0)}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <span>{selectedDetailReport.channelName}</span>
+                    <a
+                      href={selectedDetailReport.channelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={openExternal(selectedDetailReport.channelUrl)}
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <span>{selectedDetailReport.subscribers} subscribers</span>
+                    <span>•</span>
+                    <span>{selectedDetailReport.uploadFrequency}</span>
+                    <span>•</span>
+                    <span>{selectedDetailReport.videoCount} total videos</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Outlier Breakdown Content */}
+              <div className="mt-5 space-y-4">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                      <Flame className="h-4 w-4 text-amber-500" /> Standout Recent Outlier Video
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border-amber-500/30 font-mono">
+                        {selectedDetailReport.outlierMultiplier} vs Recent Baseline
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 bg-emerald-500/15 text-emerald-500 border-0 font-mono">
+                        {selectedDetailReport.outlierViewsSubRatio} Views/Subs
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <h4 className="text-base font-bold text-foreground">
+                    {selectedDetailReport.outlierVideoTitle}
+                  </h4>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground font-mono">
+                    <span className="text-foreground font-semibold">
+                      {selectedDetailReport.outlierVideoViews}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {selectedDetailReport.outlierVideoLength}
+                    </span>
+                    {selectedDetailReport.outlierVideoUrl && (
+                      <a
+                        href={selectedDetailReport.outlierVideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={openExternal(selectedDetailReport.outlierVideoUrl)}
+                        className="ml-auto text-primary hover:underline flex items-center gap-1 font-sans font-medium"
+                      >
+                        <Play className="h-3 w-3" /> Watch on YouTube
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Packaging Matrix */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border/80 bg-background/60 p-3.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Outlier Topic
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {selectedDetailReport.outlierTopic}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-border/80 bg-background/60 p-3.5">
+                    <span className="text-[11px] font-semibold text-amber-500 uppercase tracking-wider block mb-1">
+                      Title Formula
+                    </span>
+                    <span className="text-sm font-semibold text-amber-500">
+                      {selectedDetailReport.outlierTitleFormula}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Thumbnail Concept */}
+                <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                    <Lightbulb className="h-3.5 w-3.5 text-primary" /> Thumbnail Concept & Visual Strategy
+                  </span>
+                  <p className="text-xs text-foreground/90 leading-relaxed">
+                    {selectedDetailReport.outlierThumbnailConcept}
+                  </p>
+                </div>
+
+                {/* Why It Worked */}
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <span className="text-[11px] font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" /> Why It Might Have Worked
+                  </span>
+                  <p className="text-xs text-foreground leading-relaxed">
+                    {selectedDetailReport.whyItWorked}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

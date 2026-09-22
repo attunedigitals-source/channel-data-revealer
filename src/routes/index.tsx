@@ -339,6 +339,7 @@ function Index() {
 
       <CompetitorSection
         apiKey={apiKey}
+        aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
 
