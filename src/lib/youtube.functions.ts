@@ -303,6 +303,7 @@ export type CompetitorReport = {
   // Outlier Video fields
   outlierVideoTitle: string;
   outlierVideoUrl: string;
+  outlierPublicationDate: string;
   outlierVideoViews: string;
   outlierViewsSubRatio: string;
   outlierVideoLength: string;
@@ -313,6 +314,20 @@ export type CompetitorReport = {
   outlierMultiplier?: string;
   analysisSource: "api" | "public_scrape";
 };
+
+export function formatPublicationDate(publishedDate?: string, publishedText?: string): string {
+  if (publishedDate) {
+    const d = new Date(publishedDate);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    return publishedDate;
+  }
+  if (publishedText && publishedText.trim()) {
+    return publishedText.trim();
+  }
+  return "N/A";
+}
 
 export function parseBatchChannelUrls(text: string): string[] {
   if (!text) return [];
@@ -462,6 +477,7 @@ export async function detectOutlierVideo({
 }): Promise<{
   outlierVideoTitle: string;
   outlierVideoUrl: string;
+  outlierPublicationDate: string;
   outlierVideoViews: string;
   outlierViewsSubRatio: string;
   outlierVideoLength: string;
@@ -475,6 +491,7 @@ export async function detectOutlierVideo({
     return {
       outlierVideoTitle: "N/A",
       outlierVideoUrl: "",
+      outlierPublicationDate: "N/A",
       outlierVideoViews: "N/A",
       outlierViewsSubRatio: "N/A",
       outlierVideoLength: "N/A",
@@ -598,6 +615,7 @@ export async function detectOutlierVideo({
   return {
     outlierVideoTitle: best.title,
     outlierVideoUrl: best.url || (best.id ? `https://www.youtube.com/watch?v=${best.id}` : ""),
+    outlierPublicationDate: formatPublicationDate(best.publishedDate, best.publishedText),
     outlierVideoViews: viewsFormatted,
     outlierViewsSubRatio: viewsSubRatioText,
     outlierVideoLength: videoLength,
@@ -1007,6 +1025,7 @@ export async function scrapePublicCompetitor(targetUrl: string, customAiKey?: st
     topVideoUrl: topVideo?.url || "",
     outlierVideoTitle: outlier.outlierVideoTitle,
     outlierVideoUrl: outlier.outlierVideoUrl,
+    outlierPublicationDate: outlier.outlierPublicationDate,
     outlierVideoViews: outlier.outlierVideoViews,
     outlierViewsSubRatio: outlier.outlierViewsSubRatio,
     outlierVideoLength: outlier.outlierVideoLength,
@@ -1237,6 +1256,7 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
             topVideoUrl: best ? `https://www.youtube.com/watch?v=${best.id}` : "",
             outlierVideoTitle: outlier.outlierVideoTitle,
             outlierVideoUrl: outlier.outlierVideoUrl,
+            outlierPublicationDate: outlier.outlierPublicationDate,
             outlierVideoViews: outlier.outlierVideoViews,
             outlierViewsSubRatio: outlier.outlierViewsSubRatio,
             outlierVideoLength: outlier.outlierVideoLength,

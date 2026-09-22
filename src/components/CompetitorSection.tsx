@@ -50,6 +50,8 @@ const COMPETITOR_COLUMNS = [
   { key: "uploadFrequency", label: "Upload Frequency" },
   { key: "topVideoViews", label: "Top Video Views" },
   { key: "outlierVideo", label: "Outlier Video" },
+  { key: "outlierPublicationDate", label: "Outlier Publication Date" },
+  { key: "outlierVideoUrl", label: "Outlier Link" },
   { key: "outlierVideoViews", label: "Outlier Video Views" },
   { key: "outlierViewsSubRatio", label: "Outlier Video Views/Subscribers Ratio" },
   { key: "outlierVideoLength", label: "Outlier Video Length" },
@@ -335,7 +337,8 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
         "Top Video Title": sanitizeCell(r.topVideoTitle || "N/A"),
         "Top Video URL": sanitizeCell(r.topVideoUrl || ""),
         "Outlier Video": sanitizeCell(r.outlierVideoTitle || "N/A"),
-        "Outlier Video URL": sanitizeCell(r.outlierVideoUrl || ""),
+        "Outlier Publication Date": sanitizeCell(r.outlierPublicationDate || "N/A"),
+        "Outlier Link": sanitizeCell(r.outlierVideoUrl || ""),
         "Outlier Video Views": sanitizeCell(r.outlierVideoViews || "N/A"),
         "Outlier Multiplier": sanitizeCell(r.outlierMultiplier || "N/A"),
         "Outlier Video Views/Subscribers Ratio": sanitizeCell(r.outlierViewsSubRatio || "N/A"),
@@ -360,7 +363,8 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
         { wch: 40 },
         { wch: 35 },
         { wch: 45 },
-        { wch: 35 },
+        { wch: 24 },
+        { wch: 38 },
         { wch: 20 },
         { wch: 18 },
         { wch: 30 },
@@ -409,7 +413,8 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
       "Top Video Title",
       "Top Video URL",
       "Outlier Video",
-      "Outlier Video URL",
+      "Outlier Publication Date",
+      "Outlier Link",
       "Outlier Video Views",
       "Outlier Multiplier",
       "Outlier Video Views/Subscribers Ratio",
@@ -440,6 +445,7 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
       escapeCsv(r.topVideoTitle || "N/A"),
       escapeCsv(r.topVideoUrl || ""),
       escapeCsv(r.outlierVideoTitle || "N/A"),
+      escapeCsv(r.outlierPublicationDate || "N/A"),
       escapeCsv(r.outlierVideoUrl || ""),
       escapeCsv(r.outlierVideoViews || "N/A"),
       escapeCsv(r.outlierMultiplier || "N/A"),
@@ -945,6 +951,18 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                         <span>Outlier Video</span>
                       </div>
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[160px]">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Outlier Publication Date</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[130px]">
+                      <div className="flex items-center gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Outlier Link</span>
+                      </div>
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-amber-500/90 min-w-[140px]">
                       Outlier Video Views
                     </th>
@@ -1084,6 +1102,35 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                               <Lightbulb className="h-2.5 w-2.5" /> Strategy Breakdown
                             </button>
                           </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
+                      </td>
+
+                      {/* Outlier Publication Date */}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-foreground/90 whitespace-nowrap">
+                            {r.outlierPublicationDate || "N/A"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Outlier Link */}
+                      <td className="px-4 py-4 align-top">
+                        {r.outlierVideoUrl ? (
+                          <a
+                            href={r.outlierVideoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={openExternal(r.outlierVideoUrl)}
+                            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                            title={r.outlierVideoUrl}
+                          >
+                            <span>Watch</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">N/A</span>
                         )}
@@ -1308,10 +1355,19 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                           >
                             {r.outlierVideoTitle}
                           </a>
-                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground font-mono">
+                          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted-foreground font-mono">
                             <span>{r.outlierVideoViews}</span>
                             <span>•</span>
                             <span>{r.outlierVideoLength}</span>
+                            {r.outlierPublicationDate && r.outlierPublicationDate !== "N/A" && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1 font-sans text-foreground/80">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  {r.outlierPublicationDate}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1331,14 +1387,27 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                         {r.whyItWorked}
                       </p>
 
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDetailReport(r)}
-                        className="text-[11px] text-amber-500 hover:underline inline-flex items-center gap-1 font-medium self-start cursor-pointer mt-0.5"
-                      >
-                        <Lightbulb className="h-3 w-3" />
-                        Full Strategy Breakdown
-                      </button>
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailReport(r)}
+                          className="text-[11px] text-amber-500 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                        >
+                          <Lightbulb className="h-3 w-3" />
+                          Strategy Breakdown
+                        </button>
+                        {r.outlierVideoUrl && (
+                          <a
+                            href={r.outlierVideoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={openExternal(r.outlierVideoUrl)}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Watch Link
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1450,6 +1519,15 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                       <Clock className="h-3.5 w-3.5" />
                       {selectedDetailReport.outlierVideoLength}
                     </span>
+                    {selectedDetailReport.outlierPublicationDate && selectedDetailReport.outlierPublicationDate !== "N/A" && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 font-sans text-foreground/80">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          Published {selectedDetailReport.outlierPublicationDate}
+                        </span>
+                      </>
+                    )}
                     {selectedDetailReport.outlierVideoUrl && (
                       <a
                         href={selectedDetailReport.outlierVideoUrl}
