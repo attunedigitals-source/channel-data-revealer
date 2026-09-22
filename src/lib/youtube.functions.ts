@@ -54,6 +54,13 @@ export const validateApiKey = createServerFn({ method: "POST" })
 
 function parseIdentifier(raw: string) {
   const value = raw.trim();
+  const vidMatch =
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/ ]{11})/i.exec(
+      value,
+    );
+  if (vidMatch && vidMatch[1]) {
+    return { type: "video" as const, value: vidMatch[1] };
+  }
   const cleaned = value.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
   if (cleaned.startsWith("youtube.com/") || cleaned.startsWith("m.youtube.com/")) {
     const path = cleaned.slice(cleaned.indexOf("/") + 1).split("?")[0] ?? "";
@@ -113,7 +120,18 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     const ident = parseIdentifier(data.url);
 
     let channel: any | undefined;
-    if (ident.type === "id") {
+    if (ident.type === "video") {
+      const vidRes = await yt("videos", { part: "snippet", id: ident.value }, key);
+      const vidChannelId = vidRes.items?.[0]?.snippet?.channelId;
+      if (vidChannelId) {
+        const r = await yt(
+          "channels",
+          { part: "snippet,statistics,contentDetails,topicDetails", id: vidChannelId },
+          key,
+        );
+        channel = r.items?.[0];
+      }
+    } else if (ident.type === "id") {
       const r = await yt(
         "channels",
         { part: "snippet,statistics,contentDetails,topicDetails", id: ident.value },
@@ -151,38 +169,20 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     const uploadsId: string | undefined = channel.contentDetails?.relatedPlaylists?.uploads;
     let videoIds: string[] = [];
     let uploadDates: string[] = [];
-    const allVideoIds: string[] = [];
 
     if (uploadsId) {
-      // Page through the uploads playlist so "best video" looks at the whole
-      // library, not just the latest 50 (search.list only indexes a handful).
-      let pageToken: string | undefined;
-      const MAX_PAGES = 400; // up to 20,000 videos (whole channel)
-      for (let page = 0; page < MAX_PAGES; page++) {
-        const params: Record<string, string> = {
+      const playlist = await yt(
+        "playlistItems",
+        {
           part: "contentDetails",
           playlistId: uploadsId,
           maxResults: "50",
-        };
-        if (pageToken) params["pageToken"] = pageToken;
-        const playlist = await yt("playlistItems", params, key);
-        const items = playlist.items ?? [];
-        for (const i of items) {
-          const id = i.contentDetails?.videoId;
-          if (id) allVideoIds.push(id);
-        }
-        if (page === 0) {
-          videoIds = items
-            .map((i: any) => i.contentDetails?.videoId)
-            .filter(Boolean)
-            .slice(0, 50);
-          uploadDates = items
-            .map((i: any) => i.contentDetails?.videoPublishedAt)
-            .filter(Boolean);
-        }
-        pageToken = playlist.nextPageToken;
-        if (!pageToken) break;
-      }
+        },
+        key,
+      );
+      const items = playlist.items ?? [];
+      videoIds = items.map((i: any) => i.contentDetails?.videoId).filter(Boolean);
+      uploadDates = items.map((i: any) => i.contentDetails?.videoPublishedAt).filter(Boolean);
     }
 
     let videos: any[] = [];
@@ -234,66 +234,30 @@ export const analyzeChannel = createServerFn({ method: "POST" })
     };
     pickBest(videos);
 
-    // Search all-time top videos by viewCount to ensure whole-channel history is factored in
+    // Query channel-wide all-time top videos to factor whole channel archive into best video
+    const handle: string | undefined = channel.snippet?.customUrl;
+    const canonicalUrl = handle
+      ? `https://www.youtube.com/${handle.startsWith("@") ? handle : "@" + handle}`
+      : `https://www.youtube.com/channel/${channel.id}`;
+
     try {
-      const searchTop = await yt(
-        "search",
-        {
-          part: "snippet",
-          channelId: channel.id,
-          type: "video",
-          order: "viewCount",
-          maxResults: "10",
-        },
-        key,
-      );
-      if (searchTop?.items?.length) {
-        const topIds = searchTop.items.map((i: any) => i.id?.videoId).filter(Boolean);
-        if (topIds.length > 0) {
-          const topStats = await yt(
-            "videos",
-            { part: "snippet,contentDetails,statistics", id: topIds.join(",") },
-            key,
-          );
-          if (topStats?.items) {
-            pickBest(topStats.items);
-          }
+      const popVideos = await getPopularVideosFromChannel(canonicalUrl || channel.id);
+      if (popVideos.length > 0) {
+        const popIds = popVideos.slice(0, 50).map((v) => v.id).filter(Boolean);
+        const popStats = await yt(
+          "videos",
+          { part: "snippet,contentDetails,statistics", id: popIds.join(",") },
+          key,
+        );
+        if (popStats?.items) {
+          pickBest(popStats.items);
         }
       }
-    } catch (searchErr) {
-      console.warn("API search by viewCount failed:", searchErr);
-    }
-
-    const seen = new Set(videoIds);
-    const remaining = allVideoIds.filter((id) => !seen.has(id));
-    const chunks: string[][] = [];
-    for (let i = 0; i < remaining.length; i += 50) chunks.push(remaining.slice(i, i + 50));
-
-    // Fetch stats batches in parallel waves so big channels stay fast.
-    const WAVE = 10;
-    for (let i = 0; i < chunks.length; i += WAVE) {
-      const results = await Promise.all(
-        chunks.slice(i, i + WAVE).map(async (chunk) => {
-          try {
-            const r = await yt(
-              "videos",
-              { part: "snippet,contentDetails,statistics", id: chunk.join(",") },
-              key,
-            );
-            return (r.items ?? []) as any[];
-          } catch (err) {
-            console.error("Stats batch failed:", err);
-            return [] as any[];
-          }
-        }),
-      );
-      for (const list of results) pickBest(list);
+    } catch (popErr) {
+      console.warn("Popular videos query in analyzeChannel failed:", popErr);
     }
 
     if (!best) best = bestShort;
-
-
-
 
 
     const avgDurationSeconds = durations.length
@@ -306,11 +270,6 @@ export const analyzeChannel = createServerFn({ method: "POST" })
       avgDurationSeconds,
       customAiKey: data.aiApiKey?.trim(),
     });
-
-    const handle: string | undefined = channel.snippet?.customUrl;
-    const canonicalUrl = handle
-      ? `https://www.youtube.com/${handle.startsWith("@") ? handle : "@" + handle}`
-      : `https://www.youtube.com/channel/${channel.id}`;
 
     const hiddenSubs = channel.statistics?.hiddenSubscriberCount === true;
 
@@ -373,8 +332,7 @@ export function parseBatchChannelUrls(text: string): string[] {
         url = `https://www.youtube.com/@${url}`;
       }
     }
-    const cleanUrl = url
-      .split("?")[0]
+    const cleanUrl = (url.split("?")[0] || url)
       .replace(/\/videos$/, "")
       .replace(/\/featured$/, "")
       .replace(/\/$/, "");
@@ -390,10 +348,16 @@ export function parseBatchChannelUrls(text: string): string[] {
 function parseDurationText(str?: string): number {
   if (!str) return 0;
   const parts = str.trim().split(":").map(Number);
-  if (parts.some(isNaN)) return 0;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 1) return parts[0];
+  if (parts.some((p) => isNaN(p))) return 0;
+  if (parts.length === 3 && parts[0] !== undefined && parts[1] !== undefined && parts[2] !== undefined) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (parts.length === 2 && parts[0] !== undefined && parts[1] !== undefined) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 1 && parts[0] !== undefined) {
+    return parts[0];
+  }
   return 0;
 }
 
@@ -408,10 +372,186 @@ function parseViewsText(str?: string): number {
   return isNaN(num) ? 0 : Math.round(num * mult);
 }
 
+export type PopularVideoItem = {
+  id: string;
+  title: string;
+  viewsText: string;
+  viewsNum: number;
+};
+
+export async function getPopularVideosFromChannel(targetUrl: string): Promise<PopularVideoItem[]> {
+  let url = (targetUrl || "").trim();
+  if (!url) return [];
+  if (!url.startsWith("http")) {
+    if (url.startsWith("UC")) {
+      url = `https://www.youtube.com/channel/${url}`;
+    } else {
+      url = `https://www.youtube.com/${url.startsWith("@") ? url : "@" + url}`;
+    }
+  }
+  const cleanBase = url.replace(/\/videos$/, "").replace(/\/featured$/, "").replace(/\/$/, "");
+  const videosUrl = `${cleanBase}/videos`;
+
+  try {
+    const res = await fetch(videosUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cookie": "SOCS=CAESEwgDEgk2MTQ5MDUwOTQaAmVuIAEaBgiA_LyaBg; CONSENT=YES+cb.20210328-17-p0.en+FX+478;",
+      },
+    });
+
+    if (!res.ok) return [];
+
+    const html = await res.text();
+
+    const innertubeKey =
+      html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] ||
+      "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+
+    let popularToken: string | null = null;
+    const chipRegex = /"chipViewModel":\{"text":"([^"]+)".+?"token":"([^"]+)"/g;
+    let match: RegExpExecArray | null;
+    while ((match = chipRegex.exec(html)) !== null) {
+      if (match[1]?.toLowerCase() === "popular" && match[2]) {
+        popularToken = match[2];
+        break;
+      }
+    }
+
+    if (!popularToken) {
+      const chipRegexFallback = /"text":"Popular"[^}]+?"token":"([^"]+)"/;
+      const m2 = html.match(chipRegexFallback);
+      if (m2?.[1]) popularToken = m2[1];
+    }
+
+    if (!popularToken) {
+      const jsonMatch =
+        html.match(/var ytInitialData\s*=\s*({.+?});<\/script>/) ||
+        html.match(/window\["ytInitialData"\]\s*=\s*({.+?});<\/script>/);
+      if (jsonMatch?.[1]) {
+        try {
+          const str = jsonMatch[1];
+          const tokenIdx = str.indexOf('"text":"Popular"');
+          if (tokenIdx !== -1) {
+            const sub = str.slice(tokenIdx, tokenIdx + 500);
+            const tm = sub.match(/"token":"([^"]+)"/);
+            if (tm?.[1]) popularToken = tm[1];
+          }
+        } catch {}
+      }
+    }
+
+    if (!popularToken) return [];
+
+    let currentToken = popularToken;
+    const videos: PopularVideoItem[] = [];
+
+    // Page up to 3 pages to gather 60-90 popular videos across the whole channel archive
+    for (let page = 0; page < 3; page++) {
+      const browseRes = await fetch(
+        `https://www.youtube.com/youtubei/v1/browse?key=${innertubeKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+          body: JSON.stringify({
+            context: {
+              client: { clientName: "WEB", clientVersion: "2.20240315.01.00" },
+            },
+            continuation: currentToken,
+          }),
+        },
+      );
+
+      if (!browseRes.ok) break;
+      const browseData = (await browseRes.json()) as any;
+      const actions = browseData.onResponseReceivedActions || [];
+      let nextToken: string | null = null;
+
+      for (const a of actions) {
+        const items =
+          a.reloadContinuationItemsCommand?.continuationItems ||
+          a.appendContinuationItemsAction?.continuationItems ||
+          [];
+
+        for (const item of items) {
+          const lvm = item.richItemRenderer?.content?.lockupViewModel;
+          if (lvm?.contentId) {
+            const vTitle = lvm.metadata?.lockupMetadataViewModel?.title?.content || "Untitled Video";
+            const metaParts =
+              lvm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts || [];
+            const vViewsText = metaParts[0]?.text?.content || "";
+            videos.push({
+              id: lvm.contentId,
+              title: vTitle,
+              viewsText: vViewsText,
+              viewsNum: parseViewsText(vViewsText),
+            });
+          } else {
+            const vr = item.richItemRenderer?.content?.videoRenderer || item.videoRenderer;
+            if (vr?.videoId) {
+              const vTitle = vr.title?.runs?.[0]?.text || "Untitled Video";
+              const vViewsText = vr.viewCountText?.simpleText || "";
+              videos.push({
+                id: vr.videoId,
+                title: vTitle,
+                viewsText: vViewsText,
+                viewsNum: parseViewsText(vViewsText),
+              });
+            }
+          }
+          if (item.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token) {
+            nextToken = item.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+          }
+        }
+      }
+      if (!nextToken) break;
+      currentToken = nextToken;
+    }
+
+    return videos;
+  } catch (err) {
+    console.warn("getPopularVideosFromChannel failed:", err);
+    return [];
+  }
+}
+
 export async function scrapePublicCompetitor(targetUrl: string): Promise<CompetitorReport> {
   let url = targetUrl.trim();
+  const vidMatch =
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/ ]{11})/i.exec(
+      url,
+    );
+  if (vidMatch && vidMatch[1]) {
+    try {
+      const vidRes = await fetch(`https://www.youtube.com/watch?v=${vidMatch[1]}`, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (vidRes.ok) {
+        const vidHtml = await vidRes.text();
+        const chUrl =
+          vidHtml.match(/<link itemprop="url" href="([^"]+)"/)?.[1] ||
+          vidHtml.match(/"channelUrl":"([^"]+)"/)?.[1] ||
+          vidHtml.match(/"ownerProfileUrl":"([^"]+)"/)?.[1];
+        if (chUrl) url = chUrl;
+      }
+    } catch {}
+  }
   if (!url.startsWith("http")) {
-    url = `https://www.youtube.com/${url.startsWith("@") ? url : "@" + url}`;
+    if (url.startsWith("UC")) {
+      url = `https://www.youtube.com/channel/${url}`;
+    } else {
+      url = `https://www.youtube.com/${url.startsWith("@") ? url : "@" + url}`;
+    }
   }
   const cleanBase = url.replace(/\/videos$/, "").replace(/\/featured$/, "").replace(/\/$/, "");
   const videosUrl = `${cleanBase}/videos`;
@@ -435,7 +575,7 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
     html.match(/ytInitialData\s*=\s*({.+?});/);
 
   let data: any = null;
-  if (jsonMatch) {
+  if (jsonMatch && jsonMatch[1]) {
     try {
       data = JSON.parse(jsonMatch[1]);
     } catch {
@@ -475,12 +615,12 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
 
   // Videos count
   let videoCount = "N/A";
-  const vidMatch =
+  const vidCountMatch =
     html.match(/"videosCountText":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ||
     html.match(/"videoCountText":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ||
     html.match(/([0-9][0-9.,KMBkmb]*)\s*videos/i)?.[1];
-  if (vidMatch) {
-    videoCount = vidMatch.trim();
+  if (vidCountMatch) {
+    videoCount = vidCountMatch.trim();
   }
 
   // Parse videos from grid
@@ -544,84 +684,21 @@ export async function scrapePublicCompetitor(targetUrl: string): Promise<Competi
   }
 
   // Fetch Popular continuation to ensure all videos across channel history are factored into topVideoViews
-  const innertubeKey =
-    html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] ||
-    "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-  const popularTokenMatch =
-    html.match(/"text":"Popular"[^}]+"token":"([^"]+)"/) ||
-    html.match(/"chipViewModel":\{"text":"Popular".+?"token":"([^"]+)"/);
-
-  if (popularTokenMatch && innertubeKey) {
-    try {
-      const token = popularTokenMatch[1];
-      const browseRes = await fetch(
-        `https://www.youtube.com/youtubei/v1/browse?key=${innertubeKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          },
-          body: JSON.stringify({
-            context: { client: { clientName: "WEB", clientVersion: "2.20240315.01.00" } },
-            continuation: token,
-          }),
-        },
-      );
-
-      if (browseRes.ok) {
-        const browseData = (await browseRes.json()) as any;
-        const actions = browseData.onResponseReceivedActions || [];
-        for (const a of actions) {
-          const reloadItems =
-            a.reloadContinuationItemsCommand?.continuationItems ||
-            a.appendContinuationItemsAction?.continuationItems ||
-            [];
-
-          for (const item of reloadItems) {
-            const lvm = item.richItemRenderer?.content?.lockupViewModel;
-            if (lvm) {
-              const vTitle = lvm.metadata?.lockupMetadataViewModel?.title?.content || "Untitled Video";
-              const vId = lvm.contentId;
-              const metaParts =
-                lvm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel
-                  ?.metadataRows?.[0]?.metadataParts || [];
-              const vViewsText = metaParts[0]?.text?.content || "";
-              const viewsNum = parseViewsText(vViewsText);
-
-              if (viewsNum > maxViews) {
-                maxViews = viewsNum;
-                topVideo = {
-                  title: vTitle,
-                  views: vViewsText || (viewsNum > 0 ? `${nf.format(viewsNum)} views` : "N/A"),
-                  url: vId ? `https://www.youtube.com/watch?v=${vId}` : "",
-                };
-              }
-            } else {
-              const vr = item.richItemRenderer?.content?.videoRenderer || item.videoRenderer;
-              if (vr) {
-                const vTitle = vr.title?.runs?.[0]?.text || "Untitled Video";
-                const vId = vr.videoId;
-                const vViewsText = vr.viewCountText?.simpleText || "";
-                const viewsNum = parseViewsText(vViewsText);
-
-                if (viewsNum > maxViews) {
-                  maxViews = viewsNum;
-                  topVideo = {
-                    title: vTitle,
-                    views: vViewsText || (viewsNum > 0 ? `${nf.format(viewsNum)} views` : "N/A"),
-                    url: vId ? `https://www.youtube.com/watch?v=${vId}` : "",
-                  };
-                }
-              }
-            }
-          }
-        }
+  try {
+    const popVideos = await getPopularVideosFromChannel(canonicalUrl || cleanBase);
+    for (const v of popVideos) {
+      const viewsNum = v.viewsNum || parseViewsText(v.viewsText);
+      if (viewsNum > maxViews) {
+        maxViews = viewsNum;
+        topVideo = {
+          title: v.title,
+          views: v.viewsText || (viewsNum > 0 ? `${nf.format(viewsNum)} views` : "N/A"),
+          url: v.id ? `https://www.youtube.com/watch?v=${v.id}` : "",
+        };
       }
-    } catch (popErr) {
-      console.warn("Failed fetching popular continuation:", popErr);
     }
+  } catch (popErr) {
+    console.warn("Failed fetching popular videos in scrapePublicCompetitor:", popErr);
   }
 
   const typicalVideoLength = durations.length
@@ -674,7 +751,18 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
         const ident = parseIdentifier(data.url);
         let channel: any | undefined;
 
-        if (ident.type === "id") {
+        if (ident.type === "video") {
+          const vidRes = await yt("videos", { part: "snippet", id: ident.value }, key);
+          const vidChannelId = vidRes.items?.[0]?.snippet?.channelId;
+          if (vidChannelId) {
+            const r = await yt(
+              "channels",
+              { part: "snippet,statistics,contentDetails", id: vidChannelId },
+              key,
+            );
+            channel = r.items?.[0];
+          }
+        } else if (ident.type === "id") {
           const r = await yt(
             "channels",
             { part: "snippet,statistics,contentDetails", id: ident.value },
@@ -711,36 +799,20 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
           const uploadsId: string | undefined = channel.contentDetails?.relatedPlaylists?.uploads;
           let videoIds: string[] = [];
           let uploadDates: string[] = [];
-          const allVideoIds: string[] = [];
 
           if (uploadsId) {
-            let pageToken: string | undefined;
-            const MAX_PAGES = 50; // fast wave for competitors
-            for (let page = 0; page < MAX_PAGES; page++) {
-              const params: Record<string, string> = {
+            const playlist = await yt(
+              "playlistItems",
+              {
                 part: "contentDetails",
                 playlistId: uploadsId,
                 maxResults: "50",
-              };
-              if (pageToken) params["pageToken"] = pageToken;
-              const playlist = await yt("playlistItems", params, key);
-              const items = playlist.items ?? [];
-              for (const i of items) {
-                const id = i.contentDetails?.videoId;
-                if (id) allVideoIds.push(id);
-              }
-              if (page === 0) {
-                videoIds = items
-                  .map((i: any) => i.contentDetails?.videoId)
-                  .filter(Boolean)
-                  .slice(0, 50);
-                uploadDates = items
-                  .map((i: any) => i.contentDetails?.videoPublishedAt)
-                  .filter(Boolean);
-              }
-              pageToken = playlist.nextPageToken;
-              if (!pageToken) break;
-            }
+              },
+              key,
+            );
+            const items = playlist.items ?? [];
+            videoIds = items.map((i: any) => i.contentDetails?.videoId).filter(Boolean);
+            uploadDates = items.map((i: any) => i.contentDetails?.videoPublishedAt).filter(Boolean);
           }
 
           let videos: any[] = [];
@@ -790,66 +862,30 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
           };
           pickBest(videos);
 
-          // Query search by viewCount across all videos on the channel
-          try {
-            const searchTop = await yt(
-              "search",
-              {
-                part: "snippet",
-                channelId: channel.id,
-                type: "video",
-                order: "viewCount",
-                maxResults: "10",
-              },
-              key,
-            );
-            if (searchTop?.items?.length) {
-              const topIds = searchTop.items.map((i: any) => i.id?.videoId).filter(Boolean);
-              if (topIds.length > 0) {
-                const topStats = await yt(
-                  "videos",
-                  { part: "snippet,contentDetails,statistics", id: topIds.join(",") },
-                  key,
-                );
-                if (topStats?.items) {
-                  pickBest(topStats.items);
-                }
-              }
-            }
-          } catch (searchErr) {
-            console.warn("API search by viewCount failed:", searchErr);
-          }
-
-          const seen = new Set(videoIds);
-          const remaining = allVideoIds.filter((id) => !seen.has(id)).slice(0, 500);
-          const chunks: string[][] = [];
-          for (let i = 0; i < remaining.length; i += 50) chunks.push(remaining.slice(i, i + 50));
-
-          const WAVE = 5;
-          for (let i = 0; i < chunks.length; i += WAVE) {
-            const results = await Promise.all(
-              chunks.slice(i, i + WAVE).map(async (chunk) => {
-                try {
-                  const r = await yt(
-                    "videos",
-                    { part: "snippet,contentDetails,statistics", id: chunk.join(",") },
-                    key,
-                  );
-                  return (r.items ?? []) as any[];
-                } catch {
-                  return [] as any[];
-                }
-              }),
-            );
-            for (const list of results) pickBest(list);
-          }
-
-          if (!best) best = bestShort;
-
           const handle: string | undefined = channel.snippet?.customUrl;
           const canonicalUrl = handle
             ? `https://www.youtube.com/${handle.startsWith("@") ? handle : "@" + handle}`
             : `https://www.youtube.com/channel/${channel.id}`;
+
+          // Factor in all-time viral/popular videos across whole channel history
+          try {
+            const popVideos = await getPopularVideosFromChannel(canonicalUrl || channel.id || data.url);
+            if (popVideos.length > 0) {
+              const popIds = popVideos.slice(0, 50).map((v) => v.id).filter(Boolean);
+              const popStats = await yt(
+                "videos",
+                { part: "snippet,contentDetails,statistics", id: popIds.join(",") },
+                key,
+              );
+              if (popStats?.items) {
+                pickBest(popStats.items);
+              }
+            }
+          } catch (popErr) {
+            console.warn("Popular videos query in analyzeCompetitorChannel failed:", popErr);
+          }
+
+          if (!best) best = bestShort;
 
           const hiddenSubs = channel.statistics?.hiddenSubscriberCount === true;
           const subCount = Number(channel.statistics?.subscriberCount ?? 0);
@@ -893,4 +929,5 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
     // Fallback path: Public Web Scraper
     return scrapePublicCompetitor(data.url);
   });
+
 

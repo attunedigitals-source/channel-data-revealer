@@ -130,7 +130,7 @@ export function CompetitorSection({ apiKey, onOpenKeyModal }: CompetitorSectionP
     for (let i = 0; i < total; i++) {
       if (abortBatchRef.current) break;
 
-      const currentTarget = parsedBulkUrls[i];
+      const currentTarget = parsedBulkUrls[i] || "";
       setBatchProgress({
         current: i + 1,
         total,
