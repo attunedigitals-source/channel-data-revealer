@@ -18,6 +18,11 @@ import {
   FileText,
   KeyRound,
   Info,
+  SlidersHorizontal,
+  Eye,
+  CheckCircle2,
+  AlertTriangle,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,11 +43,11 @@ import {
 const SAMPLE_TOPICS = [
   "Ancient Egypt",
   "Antarctica",
-  "Roman Empire",
-  "Space",
-  "Ancient Medicine",
-  "Ocean",
+  "Deep Space",
+  "The Deep Ocean",
   "Lost Cities",
+  "Ancient Babylon",
+  "Ancient China",
 ];
 
 interface TitleGeneratorSectionProps {
@@ -70,6 +75,9 @@ export function TitleGeneratorSection({
 
   // Volume: angles per topic (default 1, max 5)
   const [anglesPerTopic, setAnglesPerTopic] = useState<number>(1);
+
+  // View mode: "compact" vs "full" (Full Editorial Intelligence)
+  const [tableDetailMode, setTableDetailMode] = useState<"full" | "compact">("full");
 
   // Generation state & results
   const [isGenerating, setIsGenerating] = useState(false);
@@ -111,7 +119,6 @@ export function TitleGeneratorSection({
       });
 
       setResults((prev) => {
-        // Prepend new results
         const combined = [...res.results, ...prev];
         return combined.map((item, idx) => ({ ...item, num: idx + 1 }));
       });
@@ -170,10 +177,15 @@ export function TitleGeneratorSection({
             r.id === item.id
               ? {
                   ...r,
+                  factPremise: fresh.factPremise,
                   angle: fresh.angle,
                   code: fresh.code,
                   pattern: fresh.pattern,
                   workingTitle: fresh.workingTitle,
+                  curiosityQuestion: fresh.curiosityQuestion,
+                  whyClick: fresh.whyClick,
+                  factuallyGrounded: fresh.factuallyGrounded,
+                  visualPotential: fresh.visualPotential,
                 }
               : r,
           ),
@@ -201,7 +213,6 @@ export function TitleGeneratorSection({
         const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         if (rows.length > 0) {
-          // Detect header row or grab first column
           let topicColIndex = 0;
           const headerRow = rows[0] || [];
           for (let c = 0; c < headerRow.length; c++) {
@@ -229,7 +240,6 @@ export function TitleGeneratorSection({
           }
         }
       } else {
-        // Plain text file (.txt)
         const text = await file.text();
         extractedTopics = text
           .split(/[\r\n]+/)
@@ -255,14 +265,12 @@ export function TitleGeneratorSection({
     }
   }
 
-  // Paste samples
   function handlePasteSamples() {
     setBulkText(SAMPLE_TOPICS.join("\n"));
   }
 
-  // Download Sample Template CSV
   function handleDownloadTemplate() {
-    const csvContent = "Topic\nAncient Egypt\nAntarctica\nRoman Empire\nSpace\nAncient Medicine\nOcean\nLost Cities\n";
+    const csvContent = "Topic\nAncient Egypt\nAntarctica\nDeep Space\nThe Deep Ocean\nLost Cities\nAncient Babylon\nAncient China\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -274,14 +282,12 @@ export function TitleGeneratorSection({
     URL.revokeObjectURL(url);
   }
 
-  // Copy single title
   function handleCopyTitle(id: string, text: string) {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  // Copy all titles
   function handleCopyAllTitles() {
     if (results.length === 0) return;
     const allText = results.map((r) => r.workingTitle).join("\n");
@@ -290,7 +296,7 @@ export function TitleGeneratorSection({
     setTimeout(() => setCopiedAll(false), 2000);
   }
 
-  // Export to Excel (.xlsx)
+  // Export to Excel (.xlsx) with all requested editorial columns
   async function handleExportExcel() {
     if (results.length === 0) return;
     try {
@@ -298,31 +304,41 @@ export function TitleGeneratorSection({
       const exportData = results.map((r) => ({
         "#": r.num,
         Topic: r.topic,
+        "Fact / Premise": r.factPremise,
         Angle: r.angle,
         Code: r.code,
         "Primary Pattern": r.pattern,
         "Working Title": r.workingTitle,
+        "Curiosity Question": r.curiosityQuestion,
+        "Why Would Someone Click?": r.whyClick,
+        "Factually Grounded?": r.factuallyGrounded,
+        "Visual Potential": r.visualPotential,
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       worksheet["!cols"] = [
         { wch: 6 },
-        { wch: 24 },
+        { wch: 22 },
+        { wch: 45 },
         { wch: 22 },
         { wch: 8 },
-        { wch: 28 },
-        { wch: 65 },
+        { wch: 26 },
+        { wch: 60 },
+        { wch: 45 },
+        { wch: 45 },
+        { wch: 20 },
+        { wch: 16 },
       ];
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Generated Titles");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Title Ideas & Analysis");
 
       const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
       const blob = new Blob([excelBuffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      const fileName = `youtube_titles_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const fileName = `title_editorial_workbook_${new Date().toISOString().slice(0, 10)}.xlsx`;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -337,10 +353,23 @@ export function TitleGeneratorSection({
     }
   }
 
-  // Export to CSV (.csv)
+  // Export to CSV (.csv) with all 10 columns
   function handleExportCsv() {
     if (results.length === 0) return;
-    const headers = ["#", "Topic", "Angle", "Code", "Primary Pattern", "Working Title"];
+    const headers = [
+      "#",
+      "Topic",
+      "Fact / Premise",
+      "Angle",
+      "Code",
+      "Primary Pattern",
+      "Working Title",
+      "Curiosity Question",
+      "Why Would Someone Click?",
+      "Factually Grounded?",
+      "Visual Potential",
+    ];
+
     const escapeCsv = (val: string | number) => {
       const s = String(val ?? "").trim();
       if (s.includes(",") || s.includes('"') || s.includes("\n")) {
@@ -355,10 +384,15 @@ export function TitleGeneratorSection({
         [
           r.num,
           escapeCsv(r.topic),
+          escapeCsv(r.factPremise),
           escapeCsv(r.angle),
           escapeCsv(r.code),
           escapeCsv(r.pattern),
           escapeCsv(r.workingTitle),
+          escapeCsv(r.curiosityQuestion),
+          escapeCsv(r.whyClick),
+          escapeCsv(r.factuallyGrounded),
+          escapeCsv(r.visualPotential),
         ].join(","),
       );
     }
@@ -367,14 +401,13 @@ export function TitleGeneratorSection({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `youtube_titles_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `title_editorial_workbook_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
 
-  // Filtered results
   const filteredResults = useMemo(() => {
     if (!searchFilter.trim()) return results;
     const q = searchFilter.toLowerCase();
@@ -384,11 +417,12 @@ export function TitleGeneratorSection({
         r.angle.toLowerCase().includes(q) ||
         r.code.toLowerCase().includes(q) ||
         r.pattern.toLowerCase().includes(q) ||
-        r.workingTitle.toLowerCase().includes(q),
+        r.workingTitle.toLowerCase().includes(q) ||
+        r.factPremise.toLowerCase().includes(q) ||
+        r.curiosityQuestion.toLowerCase().includes(q),
     );
   }, [results, searchFilter]);
 
-  // Unique topics count
   const uniqueTopicsCount = useMemo(() => {
     return new Set(results.map((r) => r.topic.toLowerCase())).size;
   }, [results]);
@@ -404,18 +438,18 @@ export function TitleGeneratorSection({
                 <Sparkles className="h-4 w-4" />
               </span>
               <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-                AI Title Packaging
+                Fact-Grounded Title Strategy
               </span>
             </div>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl flex items-center gap-3">
               <span>Title Generator</span>
               <Badge variant="outline" className="text-xs border-primary/30 text-primary font-normal">
-                Topic → Angle → Mechanism → Title
+                Fact/Premise → Angle → Mechanism → Title
               </Badge>
             </h2>
             <p className="mt-2 text-sm text-muted-foreground max-w-2xl leading-relaxed">
-              Generate high-CTR YouTube titles using 16 proven psychological patterns and custom angles.
-              Every title is uniquely crafted with distinct grammatical hooks — without repetitive starter formulas.
+              We don't manufacture mystery — we discover mystery. Every title begins with a real fact,
+              finds a compelling angle, applies a proven curiosity mechanism, and crafts a believable, high-CTR working title.
             </p>
           </div>
 
@@ -446,9 +480,7 @@ export function TitleGeneratorSection({
 
         {/* Input Box Card */}
         <div className="mt-8 rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
-          {/* Mode Switcher & Volume Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-            {/* Tabs: Single vs Bulk */}
             <div className="inline-flex rounded-lg border border-border/80 bg-muted/40 p-1">
               <button
                 type="button"
@@ -474,7 +506,6 @@ export function TitleGeneratorSection({
               </button>
             </div>
 
-            {/* Angles Volume Selector */}
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Layers className="h-3.5 w-3.5 text-primary" />
@@ -509,7 +540,7 @@ export function TitleGeneratorSection({
                 <Input
                   value={singleTopic}
                   onChange={(e) => setSingleTopic(e.target.value)}
-                  placeholder="Enter a topic (e.g. Ancient Egypt, Roman Empire, Space, Quantum Computing)..."
+                  placeholder="Enter a broad topic (e.g. Ancient Egypt, Antarctica, Deep Space, The Deep Ocean)..."
                   maxLength={150}
                   className="h-12 text-sm bg-background/60 pr-10"
                 />
@@ -542,7 +573,6 @@ export function TitleGeneratorSection({
           {/* Mode 2: Bulk Topics Upload */}
           {mode === "bulk" && (
             <div className="mt-6 space-y-4">
-              {/* Dropzone */}
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -652,7 +682,6 @@ export function TitleGeneratorSection({
                 )}
               </div>
 
-              {/* Textarea for bulk paste */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-medium text-foreground">
@@ -665,24 +694,23 @@ export function TitleGeneratorSection({
                     onClick={handlePasteSamples}
                     className="h-6 text-[11px] text-primary hover:text-primary/80 px-2 cursor-pointer"
                   >
-                    Paste 7 Sample Topics
+                    Paste 7 Broad Topics
                   </Button>
                 </div>
                 <textarea
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder="Ancient Egypt&#10;Antarctica&#10;Roman Empire&#10;Space&#10;Ancient Medicine&#10;Ocean&#10;Lost Cities"
+                  placeholder="Ancient Egypt&#10;Antarctica&#10;Deep Space&#10;The Deep Ocean&#10;Lost Cities&#10;Ancient Babylon&#10;Ancient China"
                   rows={4}
                   className="w-full rounded-xl border border-border/80 bg-background/60 p-3 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
-              {/* Bulk Action Button */}
               <div className="flex items-center justify-between pt-1">
                 <div className="text-xs text-muted-foreground">
                   <span className="font-semibold text-foreground">{parsedBulkTopics.length}</span>{" "}
                   {parsedBulkTopics.length === 1 ? "topic" : "topics"} ready to generate (
-                  {parsedBulkTopics.length * anglesPerTopic} total titles)
+                  {parsedBulkTopics.length * anglesPerTopic} total ideas)
                 </div>
 
                 <Button
@@ -710,14 +738,14 @@ export function TitleGeneratorSection({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-border/80 bg-card p-4 shadow-sm">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>Total Generated:</span>
+                  <span>Total Ideas:</span>
                   <Badge variant="secondary" className="font-semibold text-foreground text-xs">
                     {results.length}
                   </Badge>
                 </div>
                 <span className="text-border">•</span>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>Unique Topics:</span>
+                  <span>Subjects:</span>
                   <Badge variant="secondary" className="font-semibold text-foreground text-xs">
                     {uniqueTopicsCount}
                   </Badge>
@@ -733,21 +761,46 @@ export function TitleGeneratorSection({
                           : "border-border text-muted-foreground"
                       }`}
                     >
-                      {lastMode === "ai" ? "Gemini AI Engine" : "Smart Packaging Engine"}
+                      {lastMode === "ai" ? "Gemini AI Strategy" : "Fact-Grounded Engine"}
                     </Badge>
                   </>
                 )}
               </div>
 
-              {/* Search filter and Export actions */}
+              {/* View Switcher, Search filter and Export actions */}
               <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-md border border-border/80 bg-background/60 p-0.5 mr-1">
+                  <button
+                    type="button"
+                    onClick={() => setTableDetailMode("full")}
+                    className={`rounded px-2 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                      tableDetailMode === "full"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Editorial Intelligence
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTableDetailMode("compact")}
+                    className={`rounded px-2 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                      tableDetailMode === "compact"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Compact View
+                  </button>
+                </div>
+
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Filter titles..."
-                    className="h-8 w-40 text-xs pl-8 bg-background/50"
+                    placeholder="Filter by keyword..."
+                    className="h-8 w-36 text-xs pl-8 bg-background/50"
                   />
                 </div>
 
@@ -801,53 +854,74 @@ export function TitleGeneratorSection({
               </div>
             </div>
 
-            {/* Results Table (Matching media_1790106736848.png layout) */}
+            {/* Results Table */}
             <div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm">
-              <table className="w-full min-w-[850px] border-collapse text-sm">
+              <table className="w-full min-w-[950px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-14">
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-12">
                       #
                     </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-44">
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-36">
                       Topic
                     </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-40">
+                    {tableDetailMode === "full" && (
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-64">
+                        Fact / Premise
+                      </th>
+                    )}
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-36">
                       Angle
                     </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">
                       Code
                     </th>
                     <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Working Title
                     </th>
-                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28">
-                      <div className="flex items-center justify-end gap-1">
-                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>Action</span>
-                      </div>
+                    {tableDetailMode === "full" && (
+                      <>
+                        <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-60">
+                          Curiosity Question
+                        </th>
+                        <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28">
+                          Grounded?
+                        </th>
+                        <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">
+                          Visual
+                        </th>
+                      </>
+                    )}
+                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {filteredResults.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="group hover:bg-accent/30 transition-colors"
-                    >
+                    <tr key={row.id} className="group hover:bg-accent/30 transition-colors">
                       {/* # Number */}
                       <td className="px-4 py-3.5 text-xs text-muted-foreground font-mono align-top">
                         {row.num}
                       </td>
 
                       {/* Topic */}
-                      <td className="px-4 py-3.5 text-xs font-medium text-foreground align-top">
+                      <td className="px-4 py-3.5 text-xs font-semibold text-foreground align-top">
                         {row.topic}
                       </td>
 
+                      {/* Fact / Premise (in Full Mode) */}
+                      {tableDetailMode === "full" && (
+                        <td className="px-4 py-3.5 text-xs text-muted-foreground leading-relaxed align-top">
+                          <p className="line-clamp-3" title={row.factPremise}>
+                            {row.factPremise}
+                          </p>
+                        </td>
+                      )}
+
                       {/* Angle */}
                       <td className="px-4 py-3.5 text-xs text-foreground/90 align-top">
-                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground/80">
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground/85">
                           {row.angle}
                         </span>
                       </td>
@@ -863,9 +937,60 @@ export function TitleGeneratorSection({
                       </td>
 
                       {/* Working Title */}
-                      <td className="px-4 py-3.5 text-sm font-semibold text-foreground/95 leading-relaxed align-top">
-                        {row.workingTitle}
+                      <td className="px-4 py-3.5 text-sm font-semibold text-foreground leading-relaxed align-top">
+                        <span>{row.workingTitle}</span>
+                        {tableDetailMode === "full" && row.whyClick && (
+                          <p className="mt-1 text-[11px] font-normal text-muted-foreground/80 line-clamp-2">
+                            <span className="font-medium text-foreground/70">Click Trigger:</span> {row.whyClick}
+                          </p>
+                        )}
                       </td>
+
+                      {/* Curiosity Question (in Full Mode) */}
+                      {tableDetailMode === "full" && (
+                        <td className="px-4 py-3.5 text-xs text-muted-foreground/90 leading-relaxed align-top">
+                          <p className="line-clamp-3 italic font-serif">
+                            "{row.curiosityQuestion}"
+                          </p>
+                        </td>
+                      )}
+
+                      {/* Factually Grounded? */}
+                      {tableDetailMode === "full" && (
+                        <td className="px-4 py-3.5 text-xs align-top">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border ${
+                              row.factuallyGrounded === "YES"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                : row.factuallyGrounded === "NEEDS RESEARCH"
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                : "bg-destructive/10 text-destructive border-destructive/20"
+                            }`}
+                          >
+                            {row.factuallyGrounded === "YES" ? (
+                              <CheckCircle2 className="h-3 w-3" />
+                            ) : (
+                              <AlertTriangle className="h-3 w-3" />
+                            )}
+                            <span>{row.factuallyGrounded}</span>
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Visual Potential */}
+                      {tableDetailMode === "full" && (
+                        <td className="px-4 py-3.5 text-xs align-top">
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                              row.visualPotential === "Exceptional"
+                                ? "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {row.visualPotential}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Copy & Re-roll Actions */}
                       <td className="px-4 py-3.5 text-right align-top">
@@ -907,10 +1032,10 @@ export function TitleGeneratorSection({
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
-                <span>16 Proven Primary Patterns & Short Codes</span>
+                <span>16 Proven Primary Patterns & Standardized Codes</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                All 16 mechanisms stored in the app used to randomly assign angles and craft viral working titles.
+                All 16 mechanisms stored in the app. Formula: Fact/Premise → Angle → Curiosity Mechanism → Title.
               </DialogDescription>
             </DialogHeader>
 
