@@ -158,16 +158,58 @@ const GenerateTitlesInput = z.object({
   aiApiKey: z.string().trim().optional(),
 });
 
-// Topic-aware contextual knowledge for natural heuristic generation
+// Comprehensive contextual knowledge base for viral, natural topic brainstorming
 const TOPIC_KNOWLEDGE_BASE: Record<
   string,
   {
+    name?: string;
     angles: string[];
     entities: string[];
   }
 > = {
+  moon: {
+    name: "The Moon",
+    angles: ["Dark Side Anomalies", "Hollow Structure Theory", "Apollo Mission Secrets", "Subsurface Lava Tubes", "Seismic Ringing", "Origin Collision"],
+    entities: ["lunar lava tube caverns", "the mysterious dark side", "Apollo 11 classified transcripts", "seismic ringing anomalies", "subterranean ice reservoirs"],
+  },
+  lunar: {
+    name: "The Moon",
+    angles: ["Dark Side Anomalies", "Hollow Structure Theory", "Apollo Mission Secrets", "Subsurface Lava Tubes", "Seismic Ringing", "Origin Collision"],
+    entities: ["lunar lava tube caverns", "the mysterious dark side", "Apollo 11 classified transcripts", "seismic ringing anomalies", "subterranean ice reservoirs"],
+  },
+  babylon: {
+    name: "Ancient Babylon",
+    angles: ["Hanging Gardens", "Cuneiform Curse Tablets", "Tower of Babel", "Sudden Collapse", "Mighty Ishtar Gates", "Astronomical Codes"],
+    entities: ["the Hanging Gardens", "the Tower of Babel", "ancient cuneiform curse tablets", "the Gate of Ishtar", "Babylon's forgotten astronomical maps"],
+  },
+  mesopotamia: {
+    name: "Mesopotamia",
+    angles: ["Lost Ziggurats", "Cuneiform Secrets", "First Civilization Rise", "Sudden Collapse", "Sacred Canal Engineering"],
+    entities: ["ancient ziggurat megastructures", "the Epic of Gilgamesh tablets", "Ur's royal tombs", "lost hydraulic canals"],
+  },
+  "lost cities": {
+    name: "Lost Cities",
+    angles: ["Underground Megastructures", "Sudden Abandonment", "Submerged Temples", "Desert Strongholds", "Vanished Civilizations", "Unwritten Chronicles"],
+    entities: ["Derinkuyu underground complex", "Mohenjo-daro's sudden evacuation", "Amazonian LiDAR metropolises", "sunken Yonaguni megaliths", "desert cliffside citadels"],
+  },
+  "lost city": {
+    name: "Lost Cities",
+    angles: ["Underground Megastructures", "Sudden Abandonment", "Submerged Temples", "Desert Strongholds", "Vanished Civilizations", "Unwritten Chronicles"],
+    entities: ["Derinkuyu underground complex", "Mohenjo-daro's sudden evacuation", "Amazonian LiDAR metropolises", "sunken Yonaguni megaliths", "desert cliffside citadels"],
+  },
+  city: {
+    name: "Lost Cities",
+    angles: ["Underground Megastructures", "Sudden Abandonment", "Submerged Temples", "Desert Strongholds", "Vanished Civilizations", "Unwritten Chronicles"],
+    entities: ["Derinkuyu underground complex", "Mohenjo-daro's sudden evacuation", "Amazonian LiDAR metropolises", "sunken Yonaguni megaliths", "desert cliffside citadels"],
+  },
+  china: {
+    name: "China",
+    angles: ["Subterranean Megaprojects", "Great Wall Engineering", "Emperor Qin's Mercury Tomb", "High-Speed Rail Networks", "Ancient Seismographs", "Tech Super-Hubs"],
+    entities: ["Emperor Qin's toxic mercury tomb", "the Great Wall's hidden fortresses", "subterranean high-speed tunnels", "ancient earthquake detectors", "deep mountain megastructures"],
+  },
   egypt: {
-    angles: ["Engineering", "Discovery", "Lost Technology", "Royal Curses", "Buried Tombs", "Sacred Architecture"],
+    name: "Ancient Egypt",
+    angles: ["Megalithic Engineering", "Discovery", "Lost Quarrying Tech", "Royal Curses", "Buried Crypts", "Great Pyramid Astronomy"],
     entities: [
       "the Great Pyramids",
       "1,000-ton granite obelisks",
@@ -177,7 +219,13 @@ const TOPIC_KNOWLEDGE_BASE: Record<
       "undisturbed royal crypts",
     ],
   },
+  pyramid: {
+    name: "The Great Pyramids",
+    angles: ["Precision Engineering", "Hidden Shafts", "Acoustic Resonance", "Quarrying Feats", "Lost Builders", "Subterranean Void"],
+    entities: ["the Great Pyramid's hidden void", "precision granite casing stones", "subterranean bedrock chambers", "ancient alignment astronomy"],
+  },
   antarctica: {
+    name: "Antarctica",
     angles: ["Discovery", "Subglacial Lakes", "Prehistoric Radar", "Ice Core Anomalies", "Deep Station Isolation"],
     entities: [
       "Lake Vostok",
@@ -188,7 +236,8 @@ const TOPIC_KNOWLEDGE_BASE: Record<
     ],
   },
   rome: {
-    angles: ["Technology", "Hydraulic Engineering", "Lost Legions", "Colosseum Secrets", "Concrete Durability"],
+    name: "Roman Empire",
+    angles: ["Lost Technology", "Hydraulic Engineering", "Lost Legions", "Colosseum Secrets", "Concrete Durability"],
     entities: [
       "self-healing Roman concrete",
       "aqueduct hydraulic precision",
@@ -198,17 +247,19 @@ const TOPIC_KNOWLEDGE_BASE: Record<
     ],
   },
   space: {
-    angles: ["Question", "Black Hole Physics", "Lost Satellites", "Moon Anomalies", "Interstellar Horizon"],
+    name: "Deep Space",
+    angles: ["Black Hole Physics", "Lost Satellites", "Moon Anomalies", "Interstellar Horizon", "Rogue Planets"],
     entities: [
       "supermassive black holes",
       "rogue wandering planets",
-      "lunar lava tube caverns",
       "the cosmic event horizon",
       "deep-space radio bursts",
+      "interstellar void anomalies",
     ],
   },
   medicine: {
-    angles: ["Unexpected", "Ancient Surgery", "Toxic Treatments", "Herbal Alchemy", "Plague Survival"],
+    name: "Ancient Medicine",
+    angles: ["Ancient Surgery", "Toxic Treatments", "Herbal Alchemy", "Plague Survival", "Trepanation"],
     entities: [
       "skull trepanation techniques",
       "mercury and arsenic elixirs",
@@ -218,7 +269,8 @@ const TOPIC_KNOWLEDGE_BASE: Record<
     ],
   },
   ocean: {
-    angles: ["Mystery", "Mariana Trench", "Ghost Ships", "Abyssal Creatures", "Bermuda Triangle"],
+    name: "The Deep Ocean",
+    angles: ["Mariana Trench", "Ghost Ships", "Abyssal Creatures", "Bermuda Triangle", "Underwater Megastructures"],
     entities: [
       "Mariana Trench extreme pressure zones",
       "the ghost ship Mary Celeste",
@@ -227,193 +279,290 @@ const TOPIC_KNOWLEDGE_BASE: Record<
       "unmapped abyssal trenches",
     ],
   },
-  city: {
-    angles: ["Information Gap", "Underground Networks", "Sudden Abandonment", "Lost Fortresses", "Submerged Temples"],
-    entities: [
-      "Derinkuyu underground complex",
-      "Mohenjo-daro's sudden abandonment",
-      "Amazonian LiDAR metropolises",
-      "sunken Yonaguni megaliths",
-      "desert cliffside citadels",
-    ],
+  mars: {
+    name: "Mars",
+    angles: ["Lost Oceans", "Subsurface Caverns", "Rover Anomalies", "Olympus Mons", "Atmosphere Loss"],
+    entities: ["ancient dried ocean beds", "the subsurface lava tubes of Olympus Mons", "the Face on Mars anomaly", "subsurface permafrost lakes"],
+  },
+  vikings: {
+    name: "The Vikings",
+    angles: ["Sunstone Navigation", "Ulfberht Steel Swords", "Berserker Alchemy", "Lost Settlements", "Raid Tactics"],
+    entities: ["Ulfberht crucible steel swords", "crystalline sunstone navigation", "Vinland's lost settlements", "berserker sacred rituals"],
+  },
+  ai: {
+    name: "Artificial Intelligence",
+    angles: ["The Runaway Tipping Point", "Autonomous Black Boxes", "AGI Deadlines", "Hidden Vulnerabilities", "Robotic Swarms"],
+    entities: ["neural network black boxes", "superintelligent autonomous systems", "autonomous drone swarms", "the alignment horizon"],
   },
 };
 
 function getTopicContext(rawTopic: string) {
   const lower = rawTopic.toLowerCase().trim();
   for (const [k, v] of Object.entries(TOPIC_KNOWLEDGE_BASE)) {
-    if (lower.includes(k) || k.includes(lower)) {
-      return { topicName: rawTopic, ...v };
+    if (lower === k || lower.includes(k) || k.includes(lower)) {
+      return { topicName: v.name || rawTopic, angles: v.angles, entities: v.entities };
     }
   }
 
+  // Clean and title-case the topic name for arbitrary inputs
+  const cleanedTopic = rawTopic
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
   // Dynamic contextual angles and entities for any arbitrary topic
   return {
-    topicName: rawTopic,
+    topicName: cleanedTopic,
     angles: [
-      "Engineering",
-      "Discovery",
-      "Hidden Reality",
-      "Radical Innovation",
-      "Critical Breaking Point",
+      "Hidden Anomalies",
+      "Secret Origins",
+      "Radical Innovations",
+      "Critical Tipping Point",
+      "The Dark Reality",
+      "Megalithic Feats",
       "The Unspoken Rules",
-      "Origins & Evolution",
-      "Pioneers",
+      "Worst-Case Scenarios",
     ],
     entities: [
-      `${rawTopic} systems`,
-      `the underlying mechanics of ${rawTopic}`,
-      `the untold side of ${rawTopic}`,
-      `revolutionary breakthroughs in ${rawTopic}`,
-      `the critical tipping point of ${rawTopic}`,
+      `${cleanedTopic}'s core secrets`,
+      `the hidden reality of ${cleanedTopic}`,
+      `the untold side of ${cleanedTopic}`,
+      `shocking anomalies in ${cleanedTopic}`,
+      `the critical tipping point of ${cleanedTopic}`,
     ],
   };
 }
 
-// Synthesize title without predetermined start statements
+// Clean entity string generator
+function getEntityText(topic: string, angle: string, customEntity?: string): string {
+  if (customEntity && customEntity.trim().length > 3) {
+    return customEntity.trim();
+  }
+  const cleanTopic = topic.trim();
+  const cleanAngle = angle.trim().replace(/^the\s+/i, "");
+  return `${cleanTopic}'s ${cleanAngle}`;
+}
+
+// Highly curiosity-driven generators for all 16 mechanisms
+const CURIOSITY_GENERATORS: Record<string, ((t: string, a: string, e: string) => string)[]> = {
+  // Q: Question - MUST be an authentic, provocative, high-stakes curiosity question ending with ?
+  q: [
+    (t, a, e) => `Did Scientists Just Find an Artificial Structure on ${t}?`,
+    (t, a, e) => `What Would Happen If ${t} Suddenly Lost Its ${a}?`,
+    (t, a, e) => `Could ${e} Actually Explain Why History Kept It Hidden?`,
+    (t, a, e) => `Why Did Authorities Abruptly Stop Investigating ${e}?`,
+    (t, a, e) => `What Is Actually Lurking Beneath ${e}?`,
+    (t, a, e) => `Is ${e} the Greatest Unsolved Riddle in History?`,
+    (t, a, e) => `What If Everything We Were Told About ${e} Was Backwards?`,
+    (t, a, e) => `Could Humanity Survive the Worst-Case Failure of ${e}?`,
+    (t, a, e) => `Why Did Ancient Builders Risk Everything to Create ${e}?`,
+    (t, a, e) => `Is There an Undiscovered Anomaly Hidden Inside ${e}?`,
+  ],
+
+  // D: Discovery - Startling finding, unexpected unearthing, radar anomaly
+  d: [
+    (t, a, e) => `Deep Beneath ${t}, Radar Just Detected an Impossible ${a}`,
+    (t, a, e) => `Drilling Into ${t}: What Scientists Actually Found Inside ${a}`,
+    (t, a, e) => `Satellite Scans Over ${t} Just Pinpointed an Anomalous ${a}`,
+    (t, a, e) => `"We Didn't Expect This": Startling New Evidence of ${a} in ${t}`,
+    (t, a, e) => `Excavations at ${t} Yielded an Artifact That Defies Modern Science: ${a}`,
+    (t, a, e) => `After Centuries of Searching, ${t}'s Lost ${a} Was Finally Located`,
+    (t, a, e) => `A Random Archaeological Scan in ${t} Completely Upended History: ${a}`,
+    (t, a, e) => `Sensors on ${t} Just Recorded an Unprecedented Surge in ${a}`,
+  ],
+
+  // FS: Forbidden/Secret - Classified, redacted, suppressed, censored knowledge
+  fs: [
+    (t, a, e) => `Declassified Archives: What Was Quietly Covered Up About ${e}`,
+    (t, a, e) => `Locked Behind Heavy Vault Doors: ${t}'s Most Guarded ${a}`,
+    (t, a, e) => `"Do Not Disclose This": The Banned Records on ${e}`,
+    (t, a, e) => `Classified Files Reveal What Truly Happened to ${e}`,
+    (t, a, e) => `${t}'s Darkest Secret: Why ${a} Was Deliberately Erased From History`,
+    (t, a, e) => `The Forbidden Treaty: What Authorities Concealed Regarding ${e}`,
+    (t, a, e) => `Behind Closed Doors: The Suppressed Truth About ${e}`,
+    (t, a, e) => `Redacted Records: The Censored Chapter of ${e}`,
+  ],
+
+  // FQ: Future Question - Speculative scenario, impending collapse, 2035 horizon
+  fq: [
+    (t, a, e) => `2035 Horizon: What Happens When ${e} Hits Critical Mass?`,
+    (t, a, e) => `Could ${t}'s Accelerating ${a} Trigger an Irreversible Global Collapse?`,
+    (t, a, e) => `Imagine If ${e} Suddenly Collapsed Tomorrow Morning`,
+    (t, a, e) => `Are We Nearing the Irreversible Breaking Point in ${e}?`,
+    (t, a, e) => `When ${e} Reaches Its Limit, This Is What Follows`,
+    (t, a, e) => `If ${e} Fails, Here Is the Terrifying Domino Effect`,
+    (t, a, e) => `The Approaching Shift in ${e} That Nobody Is Prepared For`,
+    (t, a, e) => `What Will Tomorrow Look Like If ${e} Accelerates Unchecked?`,
+  ],
+
+  // ht_hidden: Hidden Truth - Unmasking misconceptions, busting myths, dark reality
+  ht_hidden: [
+    (t, a, e) => `Almost Everything We Were Taught About ${e} Is Factually Wrong`,
+    (t, a, e) => `The Dark Reality Behind ${t}'s Celebrated ${a}`,
+    (t, a, e) => `Debunking the Biggest Historical Lie Surrounding ${e}`,
+    (t, a, e) => `Behind the Facade: The Disturbing Reality of ${e}`,
+    (t, a, e) => `Historians Reluctantly Admit the Disturbing Truth About ${e}`,
+    (t, a, e) => `We Believed a Complete Myth: The Real Story of ${e}`,
+    (t, a, e) => `Exposing the Fatal Flaw in ${t}'s Famous ${a}`,
+    (t, a, e) => `Don't Fall for the Propaganda Surrounding ${e}`,
+  ],
+
+  // he: Historical Event - Catastrophic turning points, fateful 48 hours, disaster
+  he: [
+    (t, a, e) => `The Single Day That Completely Destroyed ${e}`,
+    (t, a, e) => `Inside the Critical 48 Hours That Decided the Fate of ${e}`,
+    (t, a, e) => `When ${e} Collapsed and Stunned the Entire World`,
+    (t, a, e) => `Revisiting the Fateful Moment That Ended ${e}`,
+    (t, a, e) => `${t}'s Forgotten Crisis: The Calamity That Reshaped ${a}`,
+    (t, a, e) => `How One Miscalculated Order Caused ${e} to Fall`,
+    (t, a, e) => `From Golden Age to Ashes: The Untold Epic of ${e}`,
+    (t, a, e) => `The Overlooked Spark That Doomed ${e}`,
+  ],
+
+  // hm: How It's Made - Precision engineering, teardowns, manufacturing secrets
+  hm: [
+    (t, a, e) => `Inside the High-Tech Facility Engineering ${e}`,
+    (t, a, e) => `Raw Elements to Finished Marvel: How ${t} Built Its ${a}`,
+    (t, a, e) => `Watch How Master Craftsmen Assembled ${e}`,
+    (t, a, e) => `The Microscopic Precision Demanded by ${e}`,
+    (t, a, e) => `Tearing Down ${e}: What's Actually on the Inside`,
+    (t, a, e) => `Step Inside the Secret Cleanroom Powering ${e}`,
+    (t, a, e) => `${e}: An Industrial Triumph Defying Modern Standards`,
+    (t, a, e) => `From Molten Slag to Precision Machine: Manufacturing ${e}`,
+  ],
+
+  // ht_transform: How/Transformation - Radical evolution, zero-to-hero, exponential shift
+  ht_transform: [
+    (t, a, e) => `From Humble Beginnings to Global Dominance: ${e} Shift`,
+    (t, a, e) => `How a Single Desperate Pivot Saved ${e} From Annihilation`,
+    (t, a, e) => `${t}'s Radical Metamorphosis: How It Reinvented ${a}`,
+    (t, a, e) => `Then vs Now: The Mind-Blowing Evolution of ${e}`,
+    (t, a, e) => `Starting With Nothing: The Exponential Rise of ${e}`,
+    (t, a, e) => `Turning Catastrophic Defeat Into Victory: ${e} Overhaul`,
+    (t, a, e) => `The Quantum Leap: How ${t} Mastered ${a} in Under a Decade`,
+    (t, a, e) => `Witnessing the Rapid Transformation of ${e}`,
+  ],
+
+  // io: Impossible Object - Structural/engineering anomaly defying modern tools
+  io: [
+    (t, a, e) => `Modern Cranes Cannot Lift What ${t} Builders Moved for ${a}`,
+    (t, a, e) => `Carved Without Steel: The Mind-Bending Megaliths of ${e}`,
+    (t, a, e) => `This Ancient Anomaly in ${t} Defies Structural Physics: ${a}`,
+    (t, a, e) => `How Did Ancient Builders Assemble ${e} Without Mortar?`,
+    (t, a, e) => `Structural Engineers Still Can't Replicate ${e}`,
+    (t, a, e) => `Defying Gravity and Scale: The Impossible Architecture of ${e}`,
+    (t, a, e) => `${t}'s Precision Saws: An Engineering Feat We Still Can't Explain: ${a}`,
+    (t, a, e) => `An Impossible 1,000-Ton Puzzle: Inside ${e}`,
+  ],
+
+  // ig: Information Gap - Missing puzzle piece, sudden abandonment, erased chronicle
+  ig: [
+    (t, a, e) => `Nobody Knows Why ${t} Was Suddenly Abandoned: The Riddle of ${a}`,
+    (t, a, e) => `Where Did ${t}'s Legendary ${a} Vanish To?`,
+    (t, a, e) => `Lost to History: The Unwritten Mystery of ${e}`,
+    (t, a, e) => `Archaeologists Struck a Complete Dead End Investigating ${e}`,
+    (t, a, e) => `The Missing Clue That Still Baffles Every Expert on ${e}`,
+    (t, a, e) => `Why Centuries of Recorded History Remain Silent on ${e}`,
+    (t, a, e) => `${t}'s Erased Records: The Missing Chronicle of ${a}`,
+    (t, a, e) => `A Sudden Blank Spot in Time: What Really Happened to ${e}?`,
+  ],
+
+  // m: Mystery - Deep unresolved anomaly, eerie signal, cold case
+  m: [
+    (t, a, e) => `Deep Inside ${t}, an Eerie Phenomenon Baffles Researchers: ${a}`,
+    (t, a, e) => `Something Uncanny Is Taking Place Around ${e}`,
+    (t, a, e) => `The Cold Case That Defies Modern Science: ${e}`,
+    (t, a, e) => `A Cryptic Signal From ${e} That Researchers Cannot Explain`,
+    (t, a, e) => `Why Instruments Keep Glitching Whenever They Scan ${e}`,
+    (t, a, e) => `${t}'s Deepest Riddle: The Unresolved Phenomenon of ${a}`,
+    (t, a, e) => `Whispers From the Depths: What Happened to ${e}?`,
+    (t, a, e) => `The Baffling Acoustic Signal Emanating From ${e}`,
+  ],
+
+  // nl: Numbered List - Ranked shocking facts, fatal blunders, mind-bending clues
+  nl: [
+    (t, a, e) => `5 Disturbing Discoveries Surrounding ${e} Never Explained`,
+    (t, a, e) => `7 Fatal Mistakes in ${e} That Led to Total Catastrophe`,
+    (t, a, e) => `Top 6 Mind-Bending Realities Hidden Inside ${e}`,
+    (t, a, e) => `3 Bizarre Anomalies Documented in ${e}`,
+    (t, a, e) => `${t}'s ${a}: 5 Overlooked Clues That Challenge Everything We Knew`,
+    (t, a, e) => `8 Disturbing Anomalies Uncovered Around ${e}`,
+    (t, a, e) => `Ranked: The 5 Deadliest Blunders in ${e}`,
+    (t, a, e) => `4 Radical Truths About ${e} That Alter History`,
+  ],
+
+  // s: Superlative - Absolute peak extremes, deadliest, largest, rarest
+  s: [
+    (t, a, e) => `The Absolute Most Dangerous Spot in ${t}: ${a}`,
+    (t, a, e) => `Earth's Most Powerful ${a} Lies Buried Inside ${t}`,
+    (t, a, e) => `Breaking Every Record: The Unprecedented Scale of ${e}`,
+    (t, a, e) => `${t}'s Deadliest ${a}: Pushing Limits to the Absolute Edge`,
+    (t, a, e) => `Unrivaled Scale: Inside ${t}'s Most Extreme Crisis Over ${a}`,
+    (t, a, e) => `The Rarest, Most Terrifying Phenomenon in ${t}'s History: ${a}`,
+    (t, a, e) => `Surpassing All Limits: The Wildest Crisis in ${e}`,
+    (t, a, e) => `The Most Extreme ${a} That Defies Every Natural Law in ${t}`,
+  ],
+
+  // uc: Unexpected Claim/Technology - Centuries ahead of its time, startling claim
+  uc: [
+    (t, a, e) => `2,000 Years Ahead of Its Time: ${e}`,
+    (t, a, e) => `${t}'s Ancient ${a} Was Staggeringly High-Tech`,
+    (t, a, e) => `Why Doing the Complete Opposite Saved ${e}`,
+    (t, a, e) => `Scientists Now Confirm: ${e} Is 10x More Advanced Than Believed`,
+    (t, a, e) => `They Laughed at ${e} Until New Evidence Proved It True`,
+    (t, a, e) => `An Impossible Technological Leap Unearthed Inside ${e}`,
+    (t, a, e) => `The Astonishing High-Tech Genius Behind ${e}`,
+    (t, a, e) => `Defying Its Era: How ${t} Mastered ${a} Millennia Early`,
+  ],
+
+  // ve: Viewer Experience - Firsthand immersion, POV, 24-hour survival, walk-through
+  ve: [
+    (t, a, e) => `I Spent 24 Hours Inside ${t}'s Most Restricted ${a}`,
+    (t, a, e) => `Step Inside ${t}'s High-Security ${a} (Unrestricted Walkthrough)`,
+    (t, a, e) => `What It Truly Feels Like to Experience ${e}`,
+    (t, a, e) => `Journeying Through ${t}: An Unfiltered Expedition Into ${a}`,
+    (t, a, e) => `A Rare Firsthand Exploration of ${e}`,
+    (t, a, e) => `Surviving the Unthinkable: Deep Dive Into ${e}`,
+    (t, a, e) => `Behind the Security Gates: Walking Through ${t}'s Most Dangerous ${a}`,
+    (t, a, e) => `POV: What Happens When You Step Foot Inside ${e}`,
+  ],
+
+  // cg: Comprehensive Guide - Exhaustive visual breakdown, masterclass, full guide
+  cg: [
+    (t, a, e) => `Mastering ${t} (${a}): The Definitive Visual Breakdown`,
+    (t, a, e) => `Everything You Need to Know About ${e}`,
+    (t, a, e) => `${t} Explained: A Complete Masterclass on ${a}`,
+    (t, a, e) => `Decoding ${e} From Scratch`,
+    (t, a, e) => `Step-by-Step Blueprint: Understanding ${e}`,
+    (t, a, e) => `${a} Inside ${t}: The Complete Field Guide`,
+    (t, a, e) => `From Foundations to Mastery: Navigating ${e}`,
+    (t, a, e) => `Building a Complete Working Knowledge of ${e}`,
+  ],
+};
+
+// Robust generator resolver that normalizes both ID and short code (case-insensitive)
+function resolveMechanismPool(codeOrId: string) {
+  let key = codeOrId.toLowerCase().trim().replace(/[^a-z_]/g, "");
+  if (key === "ht") {
+    // If generic code HT is given, pick between hidden truth and transformation
+    key = Math.random() > 0.5 ? "ht_hidden" : "ht_transform";
+  }
+  return CURIOSITY_GENERATORS[key] || CURIOSITY_GENERATORS.cg;
+}
+
+// Synthesize title with rich curiosity hooks and ZERO predetermined start statements
 function synthesizeHeuristicTitle(
   topic: string,
   angle: string,
-  code: string,
-  entity: string,
+  codeOrId: string,
+  customEntity?: string,
 ): string {
   const t = topic.trim();
   const a = angle.trim();
-  const e = entity || `${t}'s ${a}`;
+  const e = getEntityText(t, a, customEntity);
 
-  const generators: Record<string, (() => string)[]> = {
-    CG: [
-      () => `Mastering ${t} (${a}): The Definitive Visual Breakdown`,
-      () => `Decoding ${e}: A Complete Step-by-Step Blueprint`,
-      () => `${t} Masterclass: Everything About ${a} Explained in Depth`,
-      () => `How to Truly Understand ${e} in 2026`,
-      () => `From Foundations to Mastery: Navigating ${t}'s ${a}`,
-      () => `${a} Inside ${t}: The Complete Field Guide`,
-    ],
-    D: [
-      () => `Deep Beneath ${t}, Scientists Just Detected an Anomalous ${a}`,
-      () => `Excavations at ${t} Yielded a Startling Finding: ${e}`,
-      () => `${t} Just Revealed Something Nobody Thought Existed: ${e}`,
-      () => `"We Didn't Expect This": Startling Evidence of ${a} in ${t}`,
-      () => `Satellite Scans Over ${t} Pinpoint an Unprecedented ${a}`,
-      () => `Drilling Deep Into ${t}: What Researchers Actually Discovered About ${a}`,
-    ],
-    FS: [
-      () => `Redacted Archives: The Censored Truth of ${e}`,
-      () => `Locked Behind Heavy Doors: ${t}'s Most Guarded ${a}`,
-      () => `"Do Not Release This": The Suppressed Records on ${e}`,
-      () => `Classified Files Expose What Truly Happened to ${t}'s ${a}`,
-      () => `${t}'s Darkest Secret: Why ${e} Was Erased From History`,
-      () => `Behind Closed Doors: The Forbidden Story of ${t}'s ${a}`,
-    ],
-    FQ: [
-      () => `2035 Horizon: What ${t}'s Next ${a} Means for Our World`,
-      () => `Could ${e} Trigger an Irreversible Collapse?`,
-      () => `Imagine If ${e} Suddenly Vanished Overnight`,
-      () => `Are We Approaching the Breaking Point of ${t}'s ${a}?`,
-      () => `When ${e} Reaches Its Limit, This Is What Happens Next`,
-      () => `If ${t}'s ${a} Fails, Here Is the Real Domino Effect`,
-    ],
-    ht_hidden: [
-      () => `Almost Everything We Believed About ${e} Is Inaccurate`,
-      () => `Debunking the Biggest Myth Surrounding ${t} and Its ${a}`,
-      () => `Behind Closed Doors: The Unfiltered Reality of ${e}`,
-      () => `${t} Has a Dark Reality That Nobody Discusses: ${a}`,
-      () => `Historians Reluctantly Admit the Uncomfortable Truth About ${e}`,
-      () => `We Were Taught a Lie: The Real Story of ${t}'s ${a}`,
-    ],
-    HE: [
-      () => `The Single Day That Changed ${e} Forever`,
-      () => `Inside the Critical 48 Hours That Decided ${t}'s ${a}`,
-      () => `When ${e} Collapsed and Stunned the World`,
-      () => `Revisiting the Turning Point That Reshaped ${t}'s ${a}`,
-      () => `${t}'s Forgotten Crisis: The Fateful Battle Over ${a}`,
-      () => `From Prosperity to Ruin: The Epic Saga of ${t}'s ${a}`,
-    ],
-    HM: [
-      () => `Inside the High-Tech Facility Crafting ${e}`,
-      () => `Raw Materials to Finished Marvel: How ${t} Built ${a}`,
-      () => `Watch How Master Craftsmen Assemble ${e}`,
-      () => `The Microscopic Precision Demanded by ${t}'s ${a}`,
-      () => `Tearing Down ${e}: What's Actually on the Inside`,
-      () => `Step Inside the Secret Workshop Behind ${t}'s ${a}`,
-    ],
-    ht_transform: [
-      () => `From Humble Beginnings to Global Dominance: ${t}'s ${a} Shift`,
-      () => `How a Single Desperate Pivot Saved ${e}`,
-      () => `${t}'s Radical Metamorphosis: Reinventing ${a}`,
-      () => `Then vs Now: The Dramatic Leap in ${t}'s ${a}`,
-      () => `Starting With Zero: The Exponential Rise of ${e}`,
-    ],
-    IO: [
-      () => `Modern Cranes Cannot Lift What ${t} Builders Moved Every Day`,
-      () => `Carved Without Steel: The Impossible Engineering of ${e}`,
-      () => `This Ancient Anomaly in ${t} Defies Structural Physics: ${a}`,
-      () => `Engineers Are Still Stumped by ${e}`,
-      () => `Defying Gravity: The Mind-Bending Mechanics Behind ${t}'s ${a}`,
-      () => `${t}'s Precision Saws: An Engineering Feat We Still Can't Replicate`,
-    ],
-    IG: [
-      () => `Nobody Knows Why ${e} Was Suddenly Abandoned`,
-      () => `Where Did ${t}'s Most Famous ${a} Disappear To?`,
-      () => `Lost to History: The Unwritten Chapter of ${e}`,
-      () => `Archaeologists Struck a Dead End Investigating ${t}'s ${a}`,
-      () => `The Missing Clue That Still Baffles Scholars of ${e}`,
-      () => `A Sudden Blank Spot in History: What Really Happened to ${t}'s ${a}?`,
-    ],
-    M: [
-      () => `Deep Inside ${t}, an Eerie Phenomenon Baffles Researchers: ${a}`,
-      () => `Something Uncanny Is Taking Place Around ${e}`,
-      () => `The Cold Case That Defies Modern Science: ${t}'s ${a}`,
-      () => `A Cryptic Signal From ${e} Still Haunts Scientists`,
-      () => `Why Modern Instruments Keep Glitching Near ${t}'s ${a}`,
-      () => `${t}'s Deepest Riddle: The Unresolved Mystery of ${a}`,
-    ],
-    NL: [
-      () => `5 Shocking Facts About ${e} You Won't Find in Textbooks`,
-      () => `7 Catastrophic Blunders in ${t}'s ${a} That Led to Disaster`,
-      () => `Top 6 Mind-Bending Realities Hidden Inside ${e}`,
-      () => `3 Bizarre Anomalies Documented in ${t}'s ${a}`,
-      () => `${t}'s ${a}: 5 Overlooked Clues That Alter Everything`,
-      () => `Ranked: The 5 Deadliest Mistakes in ${t}'s ${a}`,
-    ],
-    Q: [
-      () => `What Would Happen If ${t} Suddenly Lost Its ${a}?`,
-      () => `Could ${e} Actually Fail When We Need It Most?`,
-      () => `What If We Were Completely Wrong About ${e}?`,
-      () => `Is ${e} the Most Misunderstood Feat in Human History?`,
-      () => `Why Did Ancient Builders Risk Everything for ${e}?`,
-      () => `Will ${t}'s Evolving ${a} Save Us or Destroy Us?`,
-    ],
-    S: [
-      () => `Earth's Most Powerful ${a} Lies Hidden in ${t}`,
-      () => `The Absolute Most Dangerous ${a} Ever Documented in ${t}: ${e}`,
-      () => `Breaking Every Record: The Unprecedented Scale of ${e}`,
-      () => `${t}'s Most Extreme ${a}: Pushing Limits to the Edge`,
-      () => `Unrivaled Scale: Inside ${t}'s Fiercest Crisis Over ${a}`,
-      () => `The Rarest, Most Extreme Phenomenon in ${t}'s History: ${a}`,
-    ],
-    UC: [
-      () => `2,000 Years Ahead of Its Time: ${e}`,
-      () => `${t}'s Ancient ${a} Was Staggeringly High-Tech`,
-      () => `Why Doing the Complete Opposite Saved ${e}`,
-      () => `Scientists Now Confirm: ${e} Is 10x More Advanced Than Expected`,
-      () => `They Laughed at ${t}'s ${a} Until New Evidence Proved It True`,
-      () => `An Impossible Technological Leap Unearthed Inside ${t}'s ${a}`,
-    ],
-    VE: [
-      () => `I Spent 24 Hours Inside ${t}'s Most Restricted ${a}`,
-      () => `Step Inside ${e}: An Uncensored Walkthrough`,
-      () => `What It Truly Feels Like to Experience ${e}`,
-      () => `Journeying Through ${t}: An Unfiltered Expedition Into ${a}`,
-      () => `Surviving the Unthinkable: Deep Dive Into ${e}`,
-      () => `Behind the Security Gates: Walking Through ${t}'s ${a}`,
-    ],
-  };
-
-  const pool = generators[code] || generators.CG;
+  const pool = resolveMechanismPool(codeOrId);
   const fn = pool[Math.floor(Math.random() * pool.length)];
-  return fn();
+  return fn(t, a, e);
 }
 
 // Generate titles via Heuristic Engine
@@ -425,8 +574,10 @@ function generateHeuristicsBatch(
   const usedStartWords: string[] = [];
   let rowId = 1;
 
-  for (const topic of topics) {
-    const ctx = getTopicContext(topic);
+  for (const rawTopic of topics) {
+    const ctx = getTopicContext(rawTopic);
+    const displayTopic = ctx.topicName || rawTopic;
+
     const anglesPool = [...ctx.angles].sort(() => Math.random() - 0.5);
     const chosenAngles = anglesPool.slice(0, anglesPerTopic);
 
@@ -446,12 +597,12 @@ function generateHeuristicsBatch(
       const mech = availableMechs[Math.floor(Math.random() * availableMechs.length)];
       usedMechIds.add(mech.id);
 
-      const entity = ctx.entities[i % ctx.entities.length] || `${topic}'s ${angle}`;
+      const entity = ctx.entities[i % ctx.entities.length] || `${displayTopic}'s ${angle}`;
 
       // Synthesize title avoiding repeating recent start words
       let title = "";
       for (let attempt = 0; attempt < 8; attempt++) {
-        const candidate = synthesizeHeuristicTitle(topic, angle, mech.id, entity);
+        const candidate = synthesizeHeuristicTitle(displayTopic, angle, mech.id, entity);
         const startWord = candidate
           .split(/\s+/)[0]
           .replace(/[^a-zA-Z0-9]/g, "")
@@ -466,7 +617,7 @@ function generateHeuristicsBatch(
       }
 
       if (!title) {
-        title = synthesizeHeuristicTitle(topic, angle, mech.id, entity);
+        title = synthesizeHeuristicTitle(displayTopic, angle, mech.id, entity);
         const startWord = title
           .split(/\s+/)[0]
           .replace(/[^a-zA-Z0-9]/g, "")
@@ -475,9 +626,9 @@ function generateHeuristicsBatch(
       }
 
       results.push({
-        id: `${topic}-${angle}-${mech.code}-${rowId}`,
+        id: `${displayTopic}-${angle}-${mech.code}-${rowId}`,
         num: rowId++,
-        topic,
+        topic: displayTopic,
         angle,
         code: mech.code,
         pattern: mech.pattern,
@@ -513,16 +664,32 @@ ${mechanismsListText}
 
 FOR EACH ANGLE GENERATED:
 1. "topic": Exact topic provided.
-2. "angle": A punchy 1 to 3 word thematic angle or concept (e.g. "Engineering", "Lost Technology", "Discovery", "Anomalies", "Origins", "Black Hole Physics").
-3. "code": Exact 1-2 letter short code from the 16 mechanisms (e.g. "IO", "D", "UC", "Q", "M", "IG", "HT", etc.).
-4. "pattern": Full name of the primary pattern (e.g. "Impossible Object", "Discovery", "Unexpected Claim/Technology").
+2. "angle": A punchy 1 to 3 word thematic angle or concept (e.g. "Dark Side Anomalies", "Hanging Gardens", "Subterranean Megaprojects", "Apollo Secrets", "Lost Technology").
+3. "code": Exact 1-2 letter short code from the 16 mechanisms (e.g. "Q", "D", "FS", "NL", "S", "UC", "VE", "IO", "M", "IG", "HT", "HE", "HM", "FQ", "CG").
+4. "pattern": Full name of the primary pattern (e.g. "Question", "Discovery", "Forbidden/Secret", "Numbered List", "Superlative").
 5. "workingTitle": The viral working title built using Topic + Angle + Mechanism.
 
-CRITICAL USER MANDATE ON TITLES:
+CRITICAL USER MANDATE ON TITLES & CURIOSITY CODES:
+- The Working Title MUST strictly reflect the curiosity trigger of the assigned Code:
+  * If Code is Q (Question): The title MUST be a provocative, high-stakes curiosity question ending in '?' (e.g. "Did Scientists Just Find an Artificial Structure on the Moon?").
+  * If Code is D (Discovery): The title MUST center on an unexpected finding, radar detection, or excavation reveal.
+  * If Code is FS (Forbidden/Secret): The title MUST evoke classified, censored, or restricted knowledge.
+  * If Code is NL (Numbered List): The title MUST feature a specific number (5, 7, 6, 8) highlighting ranked insights or shocking facts.
+  * If Code is S (Superlative): The title MUST feature an absolute peak extreme (deadliest, largest, rarest).
+  * If Code is UC (Unexpected Claim/Tech): The title MUST feature ahead-of-its-time technology or a counter-intuitive reality.
+  * If Code is VE (Viewer Experience): The title MUST provide a firsthand immersion, sensory POV, or walk-through.
+  * If Code is IO (Impossible Object): The title MUST center on an engineering or physical anomaly modern cranes or physics cannot replicate.
+  * If Code is M (Mystery): The title MUST evoke an eerie anomaly, strange signal, or cold case.
+  * If Code is IG (Information Gap): The title MUST highlight an unanswered riddle or sudden disappearance.
+  * If Code is HE (Historical Event): The title MUST focus on a catastrophic turning point or critical 48 hours.
+  * If Code is HM (How It's Made): The title MUST focus on precision manufacturing or teardowns behind closed doors.
+  * If Code is HT (How/Transformation): The title MUST focus on a radical evolution or zero-to-hero rise.
+  * If Code is HT (Hidden Truth): The title MUST debunk a myth or expose an uncomfortable reality.
+  * If Code is FQ (Future Question): The title MUST address a future tipping point or speculative countdown.
+  * If Code is CG (Comprehensive Guide): Only for CG can it be a complete masterclass or definitive guide.
 - The Working Title MUST NOT have predetermined or repetitive start statements!
 - DO NOT start every title with "The...", "How...", "Why...", "What happens when...", "7 Things...", or "Nobody knows...".
 - Each title MUST be unique and have a distinct grammatical start and sentence structure (direct declarative statements, active verbs, dialogue/quotes, colon breaks, paradoxes, time or place anchors, questions).
-- Even when multiple angles share the same primary pattern, their openings, rhythm, and sentence structures must be completely different so no pattern is easily recognizable.
 
 Return a JSON array of objects with the exact schema:
 [
