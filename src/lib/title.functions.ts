@@ -175,21 +175,32 @@ export interface GroundedIdeaModel {
   visualPotential: "High" | "Exceptional" | "Medium";
 }
 
+export interface TopicContextResult {
+  topicName: string;
+  aliases?: string[];
+  ideas: GroundedIdeaModel[];
+}
+
 // Curated Grounded Topic Knowledge Base
 // Rule: "We don't manufacture mystery. We discover mystery."
-// Formula: FACT / PREMISE -> ANGLE -> CURIOSITY MECHANISM -> TITLE
+// Formula: FACT / PREMISE -> ANGLE -> CURIOSITY MECHANISM -> WORKING TITLE
+// Fully calibrated against Day 3 Editorial & Epistemic Standards:
+// - Defensible facts without overconfident claims or evaluative superlatives
+// - Clear epistemic status (distinguishing theory from discovery, ancient lore from archaeology)
+// - Preserving genuine mysteries rather than pretending answers are settled
+// - High visual potential for generative filmmaking (Google Flow workflow)
 const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: string[]; ideas: GroundedIdeaModel[] }> = {
   egypt: {
     topicName: "Ancient Egypt",
     aliases: ["egypt", "pyramid", "pyramids", "giza", "pharaoh", "tutankhamun", "sphinx", "nile"],
     ideas: [
       {
-        fact: "Ancient Egyptians moved and fitted millions of tons of limestone and granite with sub-millimeter precision using copper-bronze saws, dolerite stone pounders, and wooden sledges.",
+        fact: "Ancient Egyptian builders produced and fitted large stone structures using tools and techniques including stone pounders, copper tools, abrasives and sledges; the exact methods used for some precision work remain an area of archaeological study.",
         angle: "Precision Stonework",
         code: "IO",
         pattern: "Impossible Object",
         title: "How Did Ancient Egyptians Achieve Such Precise Stonework?",
-        curiosityQuestion: "What specific tools and physical methods allowed Bronze Age builders to shape and fit colossal megaliths without steel?",
+        curiosityQuestion: "What specific physical tools, friction abrasives, and methods allowed Bronze Age builders to shape and fit colossal megaliths without iron or steel?",
         whyClick: "Challenges modern assumptions about ancient engineering and explores the genuine physical puzzle.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -211,7 +222,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         code: "D",
         pattern: "Discovery",
         title: "What Did Cosmic-Ray Scans Actually Find Inside the Great Pyramid?",
-        curiosityQuestion: "What is the purpose of the massive, unreached void discovered deep inside the Great Pyramid?",
+        curiosityQuestion: "What is the newly detected void, and what might explain its location and structure?",
         whyClick: "A genuine, cutting-edge modern scientific discovery inside the world's most famous ancient monument.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -251,7 +262,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         code: "IF",
         pattern: "Information Gap",
         title: "What Could Be Hidden Beneath Antarctica's Ancient Ice?",
-        curiosityQuestion: "What did the Antarctic continent look like before it was completely frozen under two miles of ice?",
+        curiosityQuestion: "What did Antarctica's landscape look like before and beneath the present ice sheet?",
         whyClick: "Triggers deep wonder about a lost, green continent buried beneath glaciers.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -262,7 +273,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         code: "D",
         pattern: "Discovery",
         title: "What Do Two Miles of Antarctic Ice Reveal About Earth's Past?",
-        curiosityQuestion: "How can ancient air trapped in microscopic ice bubbles predict Earth's climate future?",
+        curiosityQuestion: "What can ancient air trapped in ice tell us about Earth's climate—and what can that history teach us about future climate change?",
         whyClick: "Tangible evidence showing our planet's past atmosphere frozen in time.",
         factuallyGrounded: "YES",
         visualPotential: "High",
@@ -273,7 +284,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         code: "M",
         pattern: "Mystery",
         title: "The 15-Million-Year-Old Lake Sealed Deep Beneath Antarctica's Ice",
-        curiosityQuestion: "Can microbial life survive in complete darkness, under crushing pressure and super-oxygenated freezing water?",
+        curiosityQuestion: "Can microbial life survive in complete darkness under extreme pressure?",
         whyClick: "An alien-like ecosystem on Earth that serves as a test case for Jupiter's moon Europa.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -303,40 +314,102 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     ],
   },
 
+  rome: {
+    topicName: "The Roman Empire",
+    aliases: ["rome", "roman", "roman empire", "colosseum", "pompeii", "caesar", "aqueduct", "legion", "gladiator", "vesuvius", "teutoburg"],
+    ideas: [
+      {
+        fact: "Roman marine concrete has demonstrated remarkable durability, and researchers have identified chemical processes involving volcanic materials that contribute to its long-term behavior.",
+        angle: "Self-Healing Concrete",
+        code: "UC",
+        pattern: "Unexpected Claim/Technology",
+        title: "Why Roman Concrete Survived for 2,000 Years",
+        curiosityQuestion: "What specific chemical processes involving volcanic ash and lime clasts allow Roman breakwaters to endure millennia of seawater exposure?",
+        whyClick: "Directly explores the long-term chemical resilience of ancient Roman engineering.",
+        factuallyGrounded: "YES",
+        visualPotential: "Exceptional",
+      },
+      {
+        fact: "When Mount Vesuvius erupted in 79 AD, superheated pyroclastic surges entombed Herculaneum, carbonizing private library papyri into fragile charcoal cylinders.",
+        angle: "Herculaneum Scrolls",
+        code: "D",
+        pattern: "Discovery",
+        title: "How Scientists Are Finally Reading the Carbonized Scrolls of Vesuvius",
+        curiosityQuestion: "How did researchers use high-resolution X-ray tomography and machine-learning segmentation to virtually unwrap and read unopened charred scrolls?",
+        whyClick: "Cutting-edge non-destructive imaging revealing lost classical texts from the ashes of Vesuvius.",
+        factuallyGrounded: "YES",
+        visualPotential: "Exceptional",
+      },
+      {
+        fact: "In 9 AD, an alliance of Germanic tribes ambushed and annihilated three Roman legions in the Teutoburg Forest, contributing to Rome's decision not to establish permanent control east of the Rhine.",
+        angle: "Battle of Teutoburg Forest",
+        code: "HE",
+        pattern: "Historical Event",
+        title: "The Disaster That Stopped the Roman Empire in Its Tracks",
+        curiosityQuestion: "How did a Germanic chieftain trained inside the Roman military orchestrate one of Rome's most consequential military defeats?",
+        whyClick: "Gripping tactical breakdown of the battle that halted Roman expansion across the Rhine.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "The Pantheon in Rome features an unreinforced concrete dome spanning 43 meters with a 9-meter central oculus that remains the largest of its kind in the world.",
+        angle: "The Pantheon Dome",
+        code: "IO",
+        pattern: "Impossible Object",
+        title: "How Roman Builders Constructed the World's Largest Unreinforced Dome",
+        curiosityQuestion: "What structural tapering and lightweight volcanic pumice tricks prevented the colossal dome from collapsing under its own weight?",
+        whyClick: "Pure architectural wonder that modern structural engineers still study with awe.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "The fall of the Western Roman Empire was not a single catastrophic sack, but a centuries-long unraveling caused by plagues, hyperinflation, and decentralized power.",
+        angle: "Fall of Rome",
+        code: "HT",
+        pattern: "Hidden Truth",
+        title: "Why the Roman Empire Really Collapsed (It Wasn't Just Barbarians)",
+        curiosityQuestion: "Which internal economic pressures and debased currency doomed Western Rome before foreign armies ever marched on the capital?",
+        whyClick: "Counter-intuitive historical analysis with sharp parallels to modern global dilemmas.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+    ],
+  },
+
   space: {
     topicName: "Deep Space",
     aliases: ["space", "deep space", "black hole", "black holes", "rogue planet", "rogue planets", "jwst", "james webb", "voyager", "astronomy", "universe", "cosmic", "galaxy"],
     ideas: [
       {
-        fact: "Near a supermassive black hole's event horizon, gravitational time dilation slows time so drastically that hours near the hole equal years on Earth.",
+        fact: "Near a black hole's gravitational field, gravitational time dilation significantly slows the passage of time relative to distant observers, depending on mass and proximity.",
         angle: "Black Hole Time Dilation",
         code: "Q",
         pattern: "Question",
         title: "What Would Happen If You Spent 24 Hours Near a Black Hole?",
-        curiosityQuestion: "What would an astronaut experience visually and physically as gravitational time dilation takes effect?",
-        whyClick: "Unpacks mind-bending Einsteinian physics into an immediate, visceral human scenario.",
+        curiosityQuestion: "What would an observer experience visually and physically as strong gravitational time dilation takes effect near an event horizon?",
+        whyClick: "Unpacks Einsteinian general relativity into an immediate, visceral human scenario (Q + VE packaging).",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "Billions of rogue planets wander through interstellar space without orbiting any parent star, drifting in eternal darkness.",
+        fact: "Interstellar rogue planets travel through space unbound to any host star, yet theoretical models suggest some could retain thick atmospheres and internal geothermal heat.",
         angle: "Rogue Planets",
         code: "NL",
         pattern: "Numbered List",
-        title: "3 Strange Discoveries Scientists Made About Rogue Planets",
-        curiosityQuestion: "Could liquid oceans exist on rogue wandering planets heated only by radioactive cores?",
-        whyClick: "Explores the eerie realization that deep space is populated by dark, unbound worlds.",
+        title: "3 Strange Things Scientists Think Could Exist on Rogue Planets",
+        curiosityQuestion: "Could subsurface liquid water and geothermal ecosystems exist on rogue wandering planets heated only by radioactive core decay?",
+        whyClick: "Explores the startling theoretical possibility that deep space contains warm, unbound worlds.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "The James Webb Space Telescope detected massive, fully formed galaxies existing just 300 million years after the Big Bang, challenging standard cosmological models.",
+        fact: "JWST has identified surprisingly mature-looking galaxies at very early cosmic times, prompting researchers to investigate how such galaxies formed so quickly.",
         angle: "Early Universe Galaxies",
         code: "UC",
         pattern: "Unexpected Claim/Technology",
-        title: "The Early Galaxies That Shouldn't Exist: What Did James Webb Find?",
-        curiosityQuestion: "Why did the earliest universe form giant galaxies centuries faster than our physics models predicted?",
-        whyClick: "Genuine cutting-edge scientific dilemma challenging cosmological consensus.",
+        title: "The Early Galaxies That Challenged What We Thought About the Young Universe",
+        curiosityQuestion: "Why did observations of the early universe reveal unexpectedly massive and luminous galaxies so soon after the Big Bang?",
+        whyClick: "Genuine cutting-edge astrophysical dilemma challenging galactic formation timelines.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
@@ -365,28 +438,90 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     ],
   },
 
+  medicine: {
+    topicName: "Ancient Medicine",
+    aliases: ["ancient medicine", "medicine", "trepanation", "mummy medicine", "edwin smith", "herbal", "pharmacology", "surgery"],
+    ideas: [
+      {
+        fact: "The Edwin Smith Papyrus (c. 1600 BCE) contains 48 rational surgical case studies describing cranial sutures, brain pulsations, and trauma treatments without relying on magical incantations.",
+        angle: "Rational Ancient Surgery",
+        code: "D",
+        pattern: "Discovery",
+        title: "The 3,600-Year-Old Medical Papyrus That Pioneered Brain Surgery",
+        curiosityQuestion: "How did Bronze Age Egyptian trauma surgeons diagnose skull fractures, manage spinal injuries, and document neurological symptoms centuries before Hippocrates?",
+        whyClick: "Overturns assumptions that ancient medicine was solely superstitious sorcery with hard textual proof.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "Modern high-resolution CT scans and ancient DNA extraction from mummified remains have identified evidence of atherosclerosis, parasitic infections, and ancient cancers.",
+        angle: "Mummy Paleopathology",
+        code: "D",
+        pattern: "Discovery",
+        title: "What Modern Scans of Ancient Mummies Revealed About Human Disease",
+        curiosityQuestion: "How are medical researchers using computed tomography on 3,000-year-old tissues to trace the evolutionary history of modern cardiovascular disease?",
+        whyClick: "Directly links ancient physical human remains with modern medical forensics and genetic sequencing.",
+        factuallyGrounded: "YES",
+        visualPotential: "Exceptional",
+      },
+      {
+        fact: "Skeletal remains from Neolithic and Incan cultures exhibit cranial trepanation holes with smooth bone remodeling, demonstrating that patients frequently survived skull surgeries.",
+        angle: "Cranial Trepanation",
+        code: "IO",
+        pattern: "Impossible Object",
+        title: "How Ancient Patients Survived Primitive Brain Surgery",
+        curiosityQuestion: "What techniques and postoperative wound management allowed ancient healers to bore through human skulls with over 70% survival rates?",
+        whyClick: "High-stakes medical survival mystery backed by hard osteological evidence and bone regrowth.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "Spectroscopic analysis of 1,500-year-old skeletal remains from ancient Nubia detected significant concentrations of tetracycline, an antibiotic produced by soil bacteria in fermented grain.",
+        angle: "Prehistoric Antibiotics",
+        code: "UC",
+        pattern: "Unexpected Claim/Technology",
+        title: "The Ancient Nubians Who Accidentally Brewed Antibiotics",
+        curiosityQuestion: "How did ancient Nubian brewers produce medicinal tetracycline in their beer over a millennium before Alexander Fleming discovered penicillin?",
+        whyClick: "Counter-intuitive scientific surprise combining ancient brewing practices with advanced pharmacology.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "Chemical analysis of ancient medicinal residues has confirmed active compounds such as salicylic acid in willow bark and artemisinin precursors in traditional herbal preparations.",
+        angle: "Ancient Pharmacology",
+        code: "HT",
+        pattern: "Hidden Truth",
+        title: "The Ancient Remedies Science Has Actually Confirmed",
+        curiosityQuestion: "Which ancient botanical preparations were backed by real biochemical efficacy rather than placebo rituals?",
+        whyClick: "Separates genuine ancient botanical pharmacology from mythological folklore with laboratory testing.",
+        factuallyGrounded: "YES",
+        visualPotential: "Medium",
+      },
+    ],
+  },
+
   ocean: {
     topicName: "The Deep Ocean",
     aliases: ["ocean", "deep ocean", "deep sea", "abyss", "abyssal", "mariana", "mariana trench", "underwater", "trench", "marine"],
     ideas: [
       {
-        fact: "More than 80% of the ocean remains unmapped to high resolution, and more humans have walked on the Moon than reached the deepest ocean trenches.",
+        fact: "More than 75% of the ocean floor remains unmapped by high-resolution multibeam sonar, meaning we possess higher-resolution topographic maps of Mars and Venus than of Earth's seabed.",
         angle: "Unexplored Depths",
         code: "IF",
         pattern: "Information Gap",
         title: "Why Is So Little of the Deep Ocean Still Explored?",
-        curiosityQuestion: "What technological barriers keep humanity from exploring the deepest 80% of our own planet?",
+        curiosityQuestion: "What technological and bathymetric barriers prevent oceanographers from mapping the deepest 75% of Earth's seabed to high resolution?",
         whyClick: "Contrasts our space exploration achievements with the alien abyss right beneath our feet.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "In the hadal zone beneath 6,000 meters, organisms survive crushing pressures of 1,000 atmospheres and complete darkness around hydrothermal vents.",
+        fact: "In hadal trenches beneath 6,000 meters, organisms survive hydrostatic pressures exceeding 1,000 atmospheres through specialized piezolyte molecules that stabilize cellular proteins.",
         angle: "Abyssal Extremophiles",
         code: "UC",
         pattern: "Unexpected Claim/Technology",
         title: "The Strange Creatures That Thrive Where Almost Nothing Should Survive",
-        curiosityQuestion: "How do deep-sea creatures survive without sunlight, under pressure that would instantly crush steel submarines?",
+        curiosityQuestion: "How do deep-sea creatures survive pressures that would be lethal to humans?",
         whyClick: "Incredible biological adaptations that resemble extraterrestrial life forms.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -398,7 +533,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         pattern: "Mystery",
         title: "The Toxic 'Underwater Lakes' Hidden on the Ocean Floor",
         curiosityQuestion: "What happens when submersibles descend into underwater lakes that exist thousands of feet beneath the surface?",
-        whyClick: "Visual shock and fascination with an impossible-sounding geological phenomenon.",
+        whyClick: "Visual shock and fascination with an impossible-sounding geological phenomenon (M + UC + Visual).",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
@@ -432,35 +567,35 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     aliases: ["lost cities", "lost civilization", "civilizations", "mohenjo-daro", "indus", "amazon", "derinkuyu", "petra", "bronze age", "archaeology", "ruins"],
     ideas: [
       {
-        fact: "Mohenjo-daro was an advanced Bronze Age Indus metropolis with paved streets, covered sewers, and two-story brick homes that went into terminal decline around 1900 BCE.",
+        fact: "Mohenjo-daro was a large, highly organized Indus Valley settlement with sophisticated sanitation engineering whose decline around 1900 BCE remains the subject of archaeological debate.",
         angle: "Indus Valley Decline",
         code: "Q",
         pattern: "Question",
         title: "Why Did Mohenjo-daro Suddenly Decline? The Mystery of an Ancient City",
-        curiosityQuestion: "What caused an egalitarian Bronze Age civilization without palaces or royal tombs to abandon its greatest cities?",
-        whyClick: "Puzzles over how a remarkably organized civilization dissolved without evidence of warfare or military conquest.",
+        curiosityQuestion: "What environmental shifts, tectonic realignments, or trade disruptions explain the gradual abandonment of the Indus Valley's greatest planned city?",
+        whyClick: "Investigates competing archaeological hypotheses on how a major Bronze Age civilization declined without evidence of catastrophic invasion.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "Airborne LiDAR technology recently penetrated dense jungle canopies in the Amazon basin, revealing vast geometrical earthworks and road systems once housing millions.",
+        fact: "Airborne LiDAR surveys across the Upper Amazon basin have documented extensive pre-Columbian urban networks, causeways, and terra preta soils, demonstrating large-scale landscape modification.",
         angle: "Amazonian Megacities",
         code: "D",
         pattern: "Discovery",
         title: "The Lost Civilization Archaeologists Finally Rediscovered Beneath the Amazon",
-        curiosityQuestion: "How did millions of people engineer fertile soil and interconnecting cities deep inside the Amazon rainforest?",
-        whyClick: "Shatters the myth of the pristine, uninhabited Amazon wilderness with hard scientific proof.",
+        curiosityQuestion: "How did pre-Columbian populations engineer fertile terra preta soil and interconnected settlements beneath dense Amazonian jungle canopies?",
+        whyClick: "Overturns the long-held assumption of an unpopulated, pristine Amazon wilderness using modern laser scans (D + IF packaging).",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "Derinkuyu in Cappadocia is an 18-level subterranean city carved into volcanic tuff, equipped with ventilation shafts and heavy stone doors to shield 20,000 residents.",
+        fact: "Derinkuyu in Cappadocia is an 18-level subterranean complex carved into volcanic tuff, featuring massive rolling stone doors, wells, and ventilation shafts whose precise original chronology remains debated.",
         angle: "Derinkuyu Underground City",
-        code: "IO",
-        pattern: "Impossible Object",
-        title: "Why Did an Entire Civilization Build an 18-Story City Underground?",
-        curiosityQuestion: "What existential threats forced Bronze and Byzantine populations to carve entire subterranean fortresses deep into the earth?",
-        whyClick: "Mesmerizing architectural wonder of an entire functioning city cut beneath the ground.",
+        code: "Q",
+        pattern: "Question",
+        title: "Who Built Derinkuyu—and Why Did They Go Underground?",
+        curiosityQuestion: "What combination of military raids, climatic extremes, and regional conflicts drove generations of inhabitants to expand subterranean refuge cities?",
+        whyClick: "Mesmerizing architectural wonder of an entire functioning city carved deep into volcanic rock.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
@@ -494,35 +629,35 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     aliases: ["babylon", "mesopotamia", "tower of babel", "sumer", "ziggurat", "hammurabi", "euphrates", "etemenanki"],
     ideas: [
       {
-        fact: "Archaeological excavations at Babylon in the 19th and 20th centuries identified the foundation of Etemenanki, the massive seven-tier ziggurat that inspired the Tower of Babel.",
+        fact: "Etemenanki was a major Babylonian ziggurat traditionally associated by many scholars with the historical background of the Tower of Babel tradition.",
         angle: "Tower of Babel",
         code: "Q",
         pattern: "Question",
         title: "What Do We Actually Know About the Real Tower of Babel?",
-        curiosityQuestion: "What did the real Babylonian ziggurat of Marduk look like, and how did it inspire the legend of the Tower of Babel?",
-        whyClick: "Connects legendary biblical lore to physical archaeology and brick-by-brick excavations.",
+        curiosityQuestion: "What did the real Babylonian ziggurat of Marduk look like, and how did its monumental architecture inform ancient textual traditions?",
+        whyClick: "Connects legendary ancient narratives to physical archaeology and brick-by-brick excavations.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
       {
-        fact: "Cuneiform tablets from Babylon preserve sophisticated mathematical base-60 tables, celestial geometry, and astronomical algorithms centuries before Greek mathematicians.",
+        fact: "Cuneiform tablets from Babylon preserve sophisticated mathematical base-60 tables, celestial geometry, and algorithmic predictions of planetary positions.",
         angle: "Babylonian Astronomy",
         code: "UC",
         pattern: "Unexpected Claim/Technology",
         title: "The Babylonian Astronomy Tablets That Were Centuries Ahead of Their Time",
-        curiosityQuestion: "How did Babylonian priests calculate planetary orbits and Jupiter's motion using geometric methods?",
-        whyClick: "Overturns Eurocentric history of science and proves ancient Mesopotamian mathematical genius.",
+        curiosityQuestion: "How did Babylonian astronomers predict celestial movements using mathematical methods centuries before Greek mathematical astronomy?",
+        whyClick: "Highlights early Mesopotamian geometric calculations and systematic observational astronomy.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
       {
-        fact: "The Cyrus Cylinder discovered in Babylon in 1879 records the peaceful conquest of Babylon by Cyrus the Great and the repatriation of exiled populations.",
+        fact: "Ancient accounts, including Herodotus and the Cyrus Cylinder, describe the Persian capture of Babylon in 539 BCE, with historians debating the tactical methods and internal political dynamics involved.",
         angle: "Fall of Babylon",
         code: "HE",
         pattern: "Historical Event",
         title: "The Night Babylon Fell: How a Single Strategy Ended an Empire",
-        curiosityQuestion: "How did Persian engineers divert the Euphrates River to march under Babylon's impregnable river gates without a protracted siege?",
-        whyClick: "Masterclass in military strategy and historical turning points.",
+        curiosityQuestion: "How did Cyrus the Great enter Babylon's fortified perimeter without a protracted siege, and what do ancient sources reveal about the city's collapse?",
+        whyClick: "Masterclass in ancient military strategy and evaluating competing historical chronicles.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
@@ -551,40 +686,102 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     ],
   },
 
+  moon: {
+    topicName: "The Moon",
+    aliases: ["moon", "lunar", "apollo", "regolith", "shackleton", "artemis", "reiner gamma", "crater"],
+    ideas: [
+      {
+        fact: "Deep craters near the Moon's poles, such as Shackleton Crater, contain permanently shadowed regions at -246°C where orbital neutron spectrometers confirmed vast deposits of water ice.",
+        angle: "Permanently Shadowed Craters",
+        code: "D",
+        pattern: "Discovery",
+        title: "The Deep Lunar Craters That Haven't Seen Sunlight in Two Billion Years",
+        curiosityQuestion: "How can billions of tons of water ice remain preserved in the vacuum of space inside permanently shadowed lunar cold traps?",
+        whyClick: "Reveals an eerie, perpetually dark lunar landscape holding the fuel for future interplanetary exploration.",
+        factuallyGrounded: "YES",
+        visualPotential: "Exceptional",
+      },
+      {
+        fact: "The Moon lacks a global magnetic field, yet high-albedo sinuous patterns called lunar swirls—such as Reiner Gamma—align with localized crustal magnetic anomalies.",
+        angle: "Lunar Magnetic Swirls",
+        code: "M",
+        pattern: "Mystery",
+        title: "The Ghostly Patterns on the Moon Science Still Can't Fully Explain",
+        curiosityQuestion: "What created localized crustal magnetic anomalies on an airless body that deflect solar wind and paint pale swirls across the lunar basalt?",
+        whyClick: "Investigates one of planetary science's most striking optical and geophysical enigmas.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "While the Giant Impact hypothesis proposes that a Mars-sized protoplanet named Theia collided with early Earth to form the Moon, isotopic samples show Earth and the Moon share an almost identical chemical fingerprint.",
+        angle: "Giant Impact Paradox",
+        code: "Q",
+        pattern: "Question",
+        title: "Where Did the Moon Actually Come From? The Giant Impact Paradox",
+        curiosityQuestion: "If a rogue planet collided with early Earth, why does lunar rock match Earth's isotopic composition rather than the impactor's?",
+        whyClick: "Directly explores the central unsolved mystery of how our planet acquired its satellite.",
+        factuallyGrounded: "YES",
+        visualPotential: "Exceptional",
+      },
+      {
+        fact: "Gravity mapping by NASA's GRAIL mission revealed that the Moon's far side possesses a crust significantly thicker than the near side, explaining the almost complete absence of dark volcanic maria.",
+        angle: "Lunar Far Side Asymmetry",
+        code: "D",
+        pattern: "Discovery",
+        title: "Why the Far Side of the Moon Looks Completely Different from the Near Side",
+        curiosityQuestion: "What early thermal or collision event caused the Moon to develop an asymmetric crust and lopsided volcanic activity?",
+        whyClick: "Solves a visual mystery that surprised astronomers when the first far-side photos returned.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+      {
+        fact: "Orbital gamma-ray spectrometers identified an anomalous province on the lunar nearside enriched in potassium, rare earth elements, and radioactive thorium known as the Procellarum KREEP Terrane.",
+        angle: "Radioactive Lunar Terrane",
+        code: "UC",
+        pattern: "Unexpected Claim/Technology",
+        title: "The Radioactive Anomaly Hidden Beneath the Moon's Nearside",
+        curiosityQuestion: "Why did billions of tons of radioactive heat-producing elements concentrate on only one hemisphere of the Moon?",
+        whyClick: "Reveals the strange geological asymmetry that kept the nearside volcanically active for billions of years.",
+        factuallyGrounded: "YES",
+        visualPotential: "High",
+      },
+    ],
+  },
+
   china: {
     topicName: "Ancient China",
     aliases: ["china", "ancient china", "emperor qin", "terracotta", "mercury tomb", "first emperor", "great wall", "han dynasty"],
     ideas: [
       {
-        fact: "Sima Qian's historical records describe Emperor Qin Shi Huang's subterranean mausoleum as containing rivers of liquid mercury and automated traps, remaining unopened today.",
+        fact: "Sima Qian's historical records describe Emperor Qin Shi Huang's subterranean mausoleum as containing rivers of liquid mercury, and the central burial chamber remains unopened today due to preservation and safety concerns.",
         angle: "Emperor Qin's Tomb",
         code: "M",
         pattern: "Mystery",
-        title: "Why Is Emperor Qin's Tomb Still One of Archaeology's Greatest Mysteries?",
-        curiosityQuestion: "Why have Chinese archaeologists refused to open the burial chamber of the first Emperor of China for over 50 years?",
-        whyClick: "Toxic mercury, legendary booby traps, and the fear of destroying delicate artifacts keep it sealed.",
+        title: "Why Has Emperor Qin's Central Tomb Remained Unopened?",
+        curiosityQuestion: "What archaeological, technological, and preservation considerations have kept the first Emperor of China's burial chamber sealed for over two millennia?",
+        whyClick: "Investigates the delicate balance between exploring ancient imperial tombs and preventing atmospheric deterioration.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
       {
-        fact: "Soil core samples drilled across the burial mound of Emperor Qin confirm mercury concentrations 100 times higher than surrounding terrain, validating ancient written accounts.",
-        angle: "Mercury Soil Confirmation",
+        fact: "Geochemical surveys and soil core samples taken above Emperor Qin's tumulus have detected elevated mercury concentrations, prompting continued scientific investigation into the ancient accounts.",
+        angle: "Mercury Soil Survey",
         code: "D",
         pattern: "Discovery",
-        title: "The Secret Inside China's First Emperor's Tomb: What Science Has Confirmed",
-        curiosityQuestion: "Does modern soil chemistry prove that ancient Chinese historians were telling the truth about rivers of liquid mercury?",
-        whyClick: "Corroboration of an ancient legend using modern geological and chemical sampling.",
+        title: "What Science Has Revealed About the Mercury Around China's First Emperor's Tomb",
+        curiosityQuestion: "What do modern geological and chemical sampling data reveal about the presence of mercury in the soil above Qin Shi Huang's burial mound?",
+        whyClick: "Evaluates scientific testing against ancient historical accounts without sensationalism.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
       {
-        fact: "Over 8,000 life-sized terracotta soldiers guard the tomb of Qin Shi Huang, each with uniquely sculpted facial features, hairstyles, and ear shapes.",
-        angle: "Terracotta Army",
-        code: "IO",
-        pattern: "Impossible Object",
-        title: "How Ancient Chinese Craftsmen Built 8,000 Unique Soldiers in Secret",
-        curiosityQuestion: "Were the terracotta warriors modeled after real living imperial soldiers or assembled via standardized modular workshops?",
-        whyClick: "Astonishing scale and artistic hyper-realism achieved over 2,200 years ago.",
+        fact: "Over 8,000 life-sized terracotta soldiers guard the mausoleum complex of Qin Shi Huang, constructed using modular clay assembly techniques that allowed for individual detailing of facial features and uniforms.",
+        angle: "Terracotta Army Craftsmanship",
+        code: "HM",
+        pattern: "How It's Made",
+        title: "How Did Ancient Chinese Craftsmen Create Thousands of Terracotta Soldiers?",
+        curiosityQuestion: "What workshop organization and modular clay-working systems allowed 3rd-century BCE artisans to mass-produce thousands of individualized life-size statues?",
+        whyClick: "Astonishing ancient manufacturing logistics and artistic hyper-realism achieved over 2,200 years ago.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
       },
@@ -600,75 +797,13 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         visualPotential: "High",
       },
       {
-        fact: "During the Warring States period, Chinese metallurgists cast cast-iron agricultural plows and chromium-coated bronze swords over a millennium before Europe.",
+        fact: "During the Warring States period, Chinese metallurgists cast cast-iron agricultural plows and chromium-treated bronze weapons over a millennium before comparable European blast furnaces.",
         angle: "Ancient Metallurgy",
         code: "UC",
         pattern: "Unexpected Claim/Technology",
         title: "The Ancient Chinese Weapons Technology That Was 1,000 Years Ahead of Europe",
         curiosityQuestion: "How did 3rd-century BCE Chinese foundries achieve furnace temperatures high enough to melt industrial cast iron?",
         whyClick: "Reveals high-temperature blast furnaces operating centuries ahead of the Industrial Revolution.",
-        factuallyGrounded: "YES",
-        visualPotential: "High",
-      },
-    ],
-  },
-
-  rome: {
-    topicName: "The Roman Empire",
-    aliases: ["rome", "roman", "roman empire", "colosseum", "pompeii", "caesar", "aqueduct", "legion", "gladiator"],
-    ideas: [
-      {
-        fact: "Roman concrete (opus caementicium) uses volcanic pozzolana ash that undergoes self-healing chemical reactions when in contact with seawater, lasting 2,000 years.",
-        angle: "Self-Healing Concrete",
-        code: "UC",
-        pattern: "Unexpected Claim/Technology",
-        title: "Why 2,000-Year-Old Roman Concrete Is Stronger Than Modern Concrete",
-        curiosityQuestion: "What specific chemical compound in volcanic ash allows Roman breakwaters and harbors to self-repair over millennia?",
-        whyClick: "Directly contrasts ancient durability with modern infrastructure failures.",
-        factuallyGrounded: "YES",
-        visualPotential: "Exceptional",
-      },
-      {
-        fact: "When Mount Vesuvius erupted in 79 AD, superheated pyroclastic surges moving at 100 mph entombed Pompeii and Herculaneum within minutes, carbonizing scrolls and wood.",
-        angle: "Herculaneum Scrolls",
-        code: "D",
-        pattern: "Discovery",
-        title: "What AI Just Read Inside the Carbonized Scrolls of Vesuvius",
-        curiosityQuestion: "How did high-energy particle accelerator scans decipher charred scrolls unopened for two thousand years?",
-        whyClick: "Cutting-edge artificial intelligence reading lost philosophical works from the ashes of Vesuvius.",
-        factuallyGrounded: "YES",
-        visualPotential: "Exceptional",
-      },
-      {
-        fact: "In 9 AD, Germanic tribes ambushed and annihilated three elite Roman legions in the Teutoburg Forest, permanently halting Rome's eastward expansion.",
-        angle: "Battle of Teutoburg Forest",
-        code: "HE",
-        pattern: "Historical Event",
-        title: "The Disaster That Stopped the Roman Empire in Its Tracks",
-        curiosityQuestion: "How did a Germanic chieftain trained inside the Roman military orchestrate the worst military catastrophe in Roman history?",
-        whyClick: "Gripping battlefield breakdown that established the modern border between Latin and Germanic Europe.",
-        factuallyGrounded: "YES",
-        visualPotential: "High",
-      },
-      {
-        fact: "The Pantheon in Rome features an unreinforced concrete dome spanning 43 meters with a 9-meter central oculus that remains the largest of its kind in the world.",
-        angle: "The Pantheon Dome",
-        code: "IO",
-        pattern: "Impossible Object",
-        title: "How Roman Builders Constructed the World's Largest Unreinforced Dome",
-        curiosityQuestion: "What structural tapering and lightweight volcanic pumice tricks prevented the colossal dome from collapsing under its own weight?",
-        whyClick: "Pure architectural wonder that modern structural engineers still study with awe.",
-        factuallyGrounded: "YES",
-        visualPotential: "High",
-      },
-      {
-        fact: "The fall of the Western Roman Empire was not a single catastrophic sack, but a centuries-long unraveling caused by plagues, hyperinflation, and decentralized power.",
-        angle: "Fall of Rome",
-        code: "HT",
-        pattern: "Hidden Truth",
-        title: "Why the Roman Empire Really Collapsed (It Wasn't Just Barbarians)",
-        curiosityQuestion: "Which internal economic rot and debased currency doomed Western Rome before foreign armies ever marched on the capital?",
-        whyClick: "Counter-intuitive historical analysis with sharp parallels to modern global dilemmas.",
         factuallyGrounded: "YES",
         visualPotential: "High",
       },
@@ -720,7 +855,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
     aliases: ["quantum", "quantum physics", "quantum mechanics", "entanglement", "schrodinger", "qubit", "quantum computing"],
     ideas: [
       {
-        fact: "Quantum entanglement links particles across infinite distances such that measuring one instantaneously determines the state of the other, defying classical speed of light limits.",
+        fact: "Quantum entanglement links particles across vast distances such that measuring one instantaneously determines the state of the other, defying classical local realism.",
         angle: "Quantum Entanglement",
         code: "UC",
         pattern: "Unexpected Claim/Technology",
@@ -736,7 +871,7 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
         code: "M",
         pattern: "Mystery",
         title: "The Physics Experiment That Changes Depending on Who Is Watching",
-        curiosityQuestion: "Does conscious observation alter quantum reality, or does physical interaction force decoherence?",
+        curiosityQuestion: "Does physical interaction or measurement force quantum decoherence, and why does observation alter the outcome?",
         whyClick: "Mind-bending paradox that sits at the center of modern philosophy of science.",
         factuallyGrounded: "YES",
         visualPotential: "Exceptional",
@@ -746,7 +881,8 @@ const GROUNDED_TOPIC_KNOWLEDGE: Record<string, { topicName: string; aliases: str
 };
 
 // Match input to grounded topic or generate an intelligent, grounded semantic profile
-function getGroundedContext(rawTopic: string): { topicName: string; ideas: GroundedIdeaModel[] } {
+// Zero-generic boilerplate rule: No empty "Researchers investigate the fundamental questions..."
+export function getGroundedContext(rawTopic: string): TopicContextResult {
   const lower = rawTopic.toLowerCase().trim();
 
   // 1. Direct key match or alias match
@@ -763,7 +899,8 @@ function getGroundedContext(rawTopic: string): { topicName: string; ideas: Groun
 
   // 2. Intelligent, grounded dynamic synthesis for ANY arbitrary topic
   // Strict rule: DO NOT invent fake cleanrooms, radars, or suppressions.
-  // Instead, formulate real scientific / historical inquiries.
+  // DO NOT output empty boilerplate templates ("Researchers research this topic").
+  // Instead, formulate concrete investigative angles and set factuallyGrounded to "NEEDS RESEARCH".
   const cleanedTopic = rawTopic
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -773,69 +910,58 @@ function getGroundedContext(rawTopic: string): { topicName: string; ideas: Groun
     aliases: [cleanedTopic.toLowerCase()],
     ideas: [
       {
-        fact: `Scientific and historical researchers continue to investigate the fundamental questions and unanswered paradoxes surrounding ${cleanedTopic}.`,
-        angle: "Central Puzzle",
-        code: "Q",
-        pattern: "Question",
-        title: `What Is the Biggest Unsolved Mystery About ${cleanedTopic}?`,
-        curiosityQuestion: `What core paradox or open question remains unanswered about ${cleanedTopic}?`,
-        whyClick: `Presents a direct, compelling scientific inquiry about ${cleanedTopic}.`,
-        factuallyGrounded: "YES",
-        visualPotential: "High",
-      },
-      {
-        fact: `Modern technology, high-resolution imaging, and forensic data have recently revealed new unexpected insights into ${cleanedTopic}.`,
-        angle: "Recent Findings",
+        fact: `Archaeological, geological, or physical investigations into ${cleanedTopic} have uncovered concrete material and structural anomalies that prompt ongoing scientific debate.`,
+        angle: "Physical Anomaly",
         code: "D",
         pattern: "Discovery",
-        title: `What Recent Discoveries Actually Revealed About ${cleanedTopic}`,
-        curiosityQuestion: `How did new investigative evidence change what we understand about ${cleanedTopic}?`,
-        whyClick: `Taps into viewer desire for fresh, updated findings without sensationalism.`,
-        factuallyGrounded: "YES",
+        title: `What Physical Evidence Revealed About ${cleanedTopic}`,
+        curiosityQuestion: `What specific physical, forensic, or material data challenge conventional explanations of ${cleanedTopic}?`,
+        whyClick: `Investigates concrete material measurements rather than speculative theories.`,
+        factuallyGrounded: "NEEDS RESEARCH",
         visualPotential: "High",
       },
       {
-        fact: `Popular assumptions, media headlines, and conventional wisdom about ${cleanedTopic} frequently contradict actual documented evidence.`,
-        angle: "Debunking Myths",
+        fact: `Primary historical chronicles, expedition logs, and material artifacts regarding ${cleanedTopic} contain notable discrepancies that modern researchers are actively analyzing.`,
+        angle: "Textual & Artifact Analysis",
         code: "HT",
         pattern: "Hidden Truth",
-        title: `The Truth About ${cleanedTopic} That Most People Get Wrong`,
-        curiosityQuestion: `Which widespread belief about ${cleanedTopic} is disproven by historical or scientific records?`,
-        whyClick: `Appeals to counter-intuitive clarity and debunking popular misconceptions.`,
-        factuallyGrounded: "YES",
+        title: `What History Got Wrong About ${cleanedTopic}`,
+        curiosityQuestion: `Where do primary historical written records diverge from the physical archaeological findings of ${cleanedTopic}?`,
+        whyClick: `Examines contradictions between popular narrative traditions and physical evidence.`,
+        factuallyGrounded: "NEEDS RESEARCH",
         visualPotential: "High",
       },
       {
-        fact: `${cleanedTopic} involves intricate engineering, natural adaptations, or physical mechanisms that defy conventional intuition.`,
+        fact: `The specialized techniques and tools associated with ${cleanedTopic} demonstrate problem-solving adaptations that operated without modern industrial machinery.`,
         angle: "Engineering & Mechanics",
-        code: "UC",
-        pattern: "Unexpected Claim/Technology",
-        title: `How ${cleanedTopic} Achieved What Appeared to Be Impossible`,
-        curiosityQuestion: `What specific technical or physical breakthrough enabled ${cleanedTopic} to succeed?`,
-        whyClick: `Focuses on genuine technical ingenuity and problem-solving marvels.`,
-        factuallyGrounded: "YES",
+        code: "HM",
+        pattern: "How It's Made",
+        title: `How Ancient Craftsmen Engineered ${cleanedTopic}`,
+        curiosityQuestion: `What specific physical tools, friction mechanics, or materials enabled ${cleanedTopic} to be constructed?`,
+        whyClick: `Focuses on tangible problem-solving ingenuity and structural mechanics.`,
+        factuallyGrounded: "NEEDS RESEARCH",
         visualPotential: "High",
       },
       {
-        fact: `The history and development of ${cleanedTopic} hinged on critical turning points, high-stakes decisions, and unforeseen challenges.`,
-        angle: "Pivotal Turning Point",
+        fact: `The long-term trajectory and sudden turning points of ${cleanedTopic} were shaped by environmental pressures, resource constraints, and pivotal decisions.`,
+        angle: "Critical Turning Point",
         code: "HE",
         pattern: "Historical Event",
-        title: `The Fateful Turning Point That Changed ${cleanedTopic} Forever`,
-        curiosityQuestion: `Which single event or decision determined the outcome and legacy of ${cleanedTopic}?`,
-        whyClick: `Narrative tension built around high-stakes real-world moments.`,
-        factuallyGrounded: "YES",
+        title: `The Crisis That Changed ${cleanedTopic} Forever`,
+        curiosityQuestion: `Which critical environmental, economic, or strategic turning point decided the fate of ${cleanedTopic}?`,
+        whyClick: `High-stakes narrative tension centered on a pivotal real-world threshold.`,
+        factuallyGrounded: "NEEDS RESEARCH",
         visualPotential: "High",
       },
       {
-        fact: `There remain significant missing records, unmapped territories, and unexplained gaps in our understanding of ${cleanedTopic}.`,
-        angle: "The Information Gap",
-        code: "IF",
-        pattern: "Information Gap",
-        title: `What History Still Can't Explain About ${cleanedTopic}`,
-        curiosityQuestion: `Where are the critical gaps in knowledge that researchers are currently working to bridge?`,
-        whyClick: `Invites viewers to explore genuine frontiers of knowledge.`,
-        factuallyGrounded: "YES",
+        fact: `Major geographical, chemical, or archival frontiers regarding ${cleanedTopic} remain unmapped and subject to competing academic hypotheses.`,
+        angle: "Unresolved Frontier",
+        code: "Q",
+        pattern: "Question",
+        title: `Why Is ${cleanedTopic} Still an Unsolved Mystery?`,
+        curiosityQuestion: `Which competing scientific or historical hypotheses best explain the open questions surrounding ${cleanedTopic}?`,
+        whyClick: `Explores real scientific frontiers without presenting unsubstantiated conclusions.`,
+        factuallyGrounded: "NEEDS RESEARCH",
         visualPotential: "High",
       },
     ],
@@ -843,7 +969,7 @@ function getGroundedContext(rawTopic: string): { topicName: string; ideas: Groun
 }
 
 // Generate titles via Heuristic Engine grounded in real facts
-function generateHeuristicsBatch(
+export function generateHeuristicsBatch(
   topics: string[],
   anglesPerTopic: number,
 ): TitleResultItem[] {
@@ -858,6 +984,7 @@ function generateHeuristicsBatch(
     const pool = [...ctx.ideas];
     for (let i = 0; i < anglesPerTopic; i++) {
       const idea = pool[i % pool.length];
+      if (!idea) continue;
 
       results.push({
         id: `${displayTopic}-${idea.angle}-${idea.code}-${rowId}`,
@@ -898,54 +1025,47 @@ Your core principle:
 You follow this STRICT 4-step pipeline for every title:
 FACT / PREMISE -> ANGLE -> CURIOSITY MECHANISM -> WORKING TITLE
 
-MANDATORY EDITORIAL RULES:
-1. Grounded in Reality:
-   - Curiosity MUST come from the genuine subject itself—NOT from fabricated facts.
-   - NEVER invent fictional premises, secret laboratories, cleanrooms, prehistoric radars, suppressed ice sheets, or physical visits inside black holes.
-   - Do NOT use words like "Suppressed", "Classified", "Secret", "Banned", "Cleanroom", or "Nobody wants you to know" unless there is documented evidence of secrecy or declassification.
-   - Do NOT invent specific numbers (e.g. don't write "1,000-ton obelisks" unless verifying it is specifically the Unfinished Obelisk at Aswan).
-   - Do NOT invent sudden evacuations or abandonments that did not happen historically (e.g. humans didn't abandon the deep ocean).
+MANDATORY EDITORIAL & RESEARCH DISCIPLINE RULES (DAY 3 STANDARDS):
+1. Grounded in Defensible Reality:
+   - Curiosity MUST come from the genuine subject itself—NOT from fabricated drama.
+   - Do NOT use evaluative superlatives or sensational hyperbole (e.g. NEVER write "worst military catastrophe in history", "mathematical genius", "sub-millimeter precision", "instantly crush steel submarines").
+   - Do NOT make absolute statements that overstate the evidence (e.g. NEVER write "completely frozen", "permanently halting", "stronger than modern concrete").
+   - Clearly distinguish between:
+     * Empirical Physical Discoveries (e.g. ScanPyramids muon scans, LiDAR in the Amazon, Dome C ice cores).
+     * Theoretical Possibilities & Models (e.g. theoretical oceans on rogue planets -> use "Scientists Think Could Exist", NOT "Scientists Made About").
+     * Ancient Written Traditions & Lore (e.g. Sima Qian's accounts of mercury rivers, ancient accounts of Cyrus diverting the Euphrates) vs confirmed physical artifacts.
+     * Scholarly Debates (e.g. Mohenjo-daro decline, Derinkuyu construction chronology) vs settled historical facts.
 
-2. Standardized Pattern Codes:
-   - IF = Information Gap (an unanswered historical or scientific question or unexplored frontier)
-   - SF = Superlative/Fascination (peak extreme or fascinating scale)
-   - FS = Forbidden/Secret (genuine declassified or suppressed history only)
-   - Q = Question (MUST be a direct, sharp inquiry question ending in '?')
-   - D = Discovery (real scientific/archaeological finding)
-   - M = Mystery (genuine unexplained natural or historical phenomenon)
-   - IO = Impossible Object (engineering anomaly that defies conventional tools)
-   - UC = Unexpected Claim/Technology (innovation ahead of its time)
-   - VE = Viewer Experience (hypothetical simulation or firsthand immersion)
-   - HE = Historical Event (fateful turning point or crisis)
-   - HM = How It's Made (precision craftsmanship or engineering)
-   - HT = Hidden Truth / Transformation (myth busting or radical shift)
-   - NL = Numbered List (e.g. "3 Strange Discoveries...")
-   - CG = Comprehensive Guide (complete masterclass)
+2. Zero Generic Boilerplate / Narrow Broad Topics:
+   - NEVER generate generic non-premises such as:
+     * "Researchers continue to investigate the fundamental questions surrounding [Topic]..."
+     * "Modern technology has recently revealed new unexpected insights into [Topic]..."
+     * "What Is the Biggest Unsolved Mystery About [Topic]?"
+   - When given a broad topic (e.g., "The Moon" or "Ancient Medicine"), you MUST first narrow it down to a SPECIFIC MYSTERY / SPECIFIC EVIDENCE + SPECIFIC QUESTION:
+     * For "The Moon": narrow to permanently shadowed craters / water ice, Reiner Gamma magnetic swirls, Giant Impact isotopic paradox, or far-side crustal thickness.
+     * For "Ancient Medicine": narrow to Edwin Smith Papyrus neurotrauma, mummy CT cardiovascular paleopathology, or trepanation bone regrowth.
 
-3. Bad vs Good Calibration Examples to Internalize:
-   - BAD: "Step Inside the Secret Cleanroom Powering the Great Pyramids" (invented cleanroom!)
-     BETTER: "How Did Ancient Egyptians Achieve Such Precise Stonework?"
-   - BAD: "Carved Without Steel: The Mind-Bending Megaliths of 1,000-ton granite obelisks" (unverified claim)
-     BETTER: "How Were Ancient Egypt's Massive Stone Monuments Carved and Moved?"
-   - BAD: "Antarctica's Erased Records: The Missing Chronicle of Prehistoric Radar" (impossible claim)
-     BETTER: "What Could Be Hidden Beneath Antarctica's Ancient Ice?"
-   - BAD: "Behind Closed Doors: The Suppressed Truth About two-mile-deep ice sheets" (misleading suppression)
-     BETTER: "What Do Two Miles of Antarctic Ice Reveal About Earth's Past?"
-   - BAD: "Nobody Knows Why The Deep Ocean Was Suddenly Abandoned" (false premise)
-     BETTER: "Why Is So Little of the Deep Ocean Still Explored?"
-   - BAD: "I Spent 24 Hours Inside Deep Space's Most Restricted Black Hole Physics" (impossible physical visit)
-     BETTER: "What Would Happen If You Spent 24 Hours Near a Black Hole?"
-   - BAD: "3 Bizarre Anomalies Documented in rogue wandering planets" (vague)
-     BETTER: "3 Strange Discoveries Scientists Made About Rogue Planets"
-   - BAD: "When Mohenjo-daro's sudden evacuation Collapsed and Stunned the Entire World" (unsupported claim)
-     BETTER: "Why Did Mohenjo-daro Suddenly Decline? The Mystery of an Ancient City"
-   - BAD: "Lost Cities's Lost Vanished Civilizations Was Finally Located" (grammatically confused)
-     BETTER: "The Lost Civilization Archaeologists Finally Rediscovered Beneath the Amazon"
-   - BAD: "Something Uncanny Is Taking Place Around Emperor Qin's Toxic Mercury Tomb" (vague sensationalism)
-     BETTER: "Why Is Emperor Qin's Tomb Still One of Archaeology's Greatest Mysteries?"
+3. Preserve the Genuine Mystery (Do NOT pretend to know the answer):
+   - If an anomaly's purpose or cause is unknown (e.g., the 30m void in the Great Pyramid, or Emperor Qin's unopened tomb):
+     * Do NOT ask "What was the purpose..." as if the purpose is established.
+     * Ask: "What is the newly detected void, and what might explain its location and structure?"
+     * Do NOT say "archaeologists refused to open" (sounds conspiratorial). Instead, focus on archaeological, conservation, and technological considerations: "Why Has Emperor Qin's Central Tomb Remained Unopened?"
 
-4. Output format:
-   - Return a JSON array of objects conforming to the requested schema.`;
+4. Accurate Technological & Scientific Framing:
+   - Do NOT claim "AI literally read the scrolls" -> describe the actual technology: high-resolution X-ray/CT tomography combined with 3D computational unwrapping and machine learning.
+   - Do NOT claim ancient ice cores "predict the climate future" -> explain that ice cores preserve historical atmospheric archives that help scientists understand climate processes and calibrate predictive models.
+
+5. Visual Potential for Generative Filmmaking (Google Flow Workflow):
+   - Evaluate visual potential based on concrete cinematic imagery (subglacial lakes, geological cross-sections, LiDAR flythroughs, hadal submersibles, microscopic cell adaptations, micro-CT mummy scans).
+   - High visual potential subjects make generative filmmaking exceptionally compelling.
+
+6. Proven Packaging Formulas to Emulate:
+   - Q + VE (Provocative Question + Viewer Simulation): "What Would Happen If You Spent 24 Hours Near a Black Hole?"
+   - M + UC + Visual: "The Toxic 'Underwater Lakes' Hidden on the Ocean Floor"
+   - D + IF (Discovery + Information Gap): "The Lost Civilization Archaeologists Finally Rediscovered Beneath the Amazon"
+   - D (Cutting-edge Science): "What Did Cosmic-Ray Scans Actually Find Inside the Great Pyramid?", "How Scientists Are Finally Reading the Carbonized Scrolls of Vesuvius"
+   - HM (Craftsmanship): "How Did Ancient Chinese Craftsmen Create Thousands of Terracotta Soldiers?"
+   - Defensible Engineering Question: "How Did Ancient Egyptians Achieve Such Precise Stonework?", "Why Roman Concrete Survived for 2,000 Years"`;
 
   const userPrompt = `Generate YouTube documentary titles for the following topics:
 ${topics.map((t, idx) => `${idx + 1}. "${t}"`).join("\n")}
@@ -958,12 +1078,12 @@ Return a valid JSON array of objects with the exact schema:
 [
   {
     "topic": "Exact topic name",
-    "factPremise": "The real underlying historical or scientific fact/premise (1-2 sentences)",
-    "angle": "The specific thematic angle or lens (1-3 words)",
-    "code": "Exact pattern code (e.g. Q, D, IF, SF, FS, IO, M, UC, VE, HE, etc.)",
+    "factPremise": "The real underlying historical or scientific fact/premise (1-2 defensible, epistemically accurate sentences)",
+    "angle": "The specific thematic documentary angle (1-3 words, e.g. 'Precision Stonework', 'Subglacial Geography', 'Self-Healing Concrete')",
+    "code": "Exact pattern code (e.g. Q, D, IF, SF, FS, IO, M, UC, VE, HE, HM, HT, NL, CG)",
     "pattern": "Full name of the pattern",
     "workingTitle": "The grounded, high-CTR working title (NO clickbait fabrications)",
-    "curiosityQuestion": "The underlying question that creates desire in the viewer",
+    "curiosityQuestion": "The underlying question that creates desire in the viewer without pretending the answer is already settled",
     "whyClick": "Why a real viewer would click (psychological trigger)",
     "factuallyGrounded": "YES",
     "visualPotential": "High or Exceptional or Medium"

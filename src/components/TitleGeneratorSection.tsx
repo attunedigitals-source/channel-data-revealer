@@ -9,19 +9,15 @@ import {
   Upload,
   RefreshCw,
   Trash2,
-  HelpCircle,
   Search,
   BookOpen,
-  ArrowRight,
   Layers,
   Wand2,
   FileText,
   KeyRound,
-  Info,
-  SlidersHorizontal,
-  Eye,
   CheckCircle2,
   AlertTriangle,
+  ShieldCheck,
   Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,10 +39,13 @@ import {
 const SAMPLE_TOPICS = [
   "Ancient Egypt",
   "Antarctica",
+  "The Roman Empire",
   "Deep Space",
+  "Ancient Medicine",
   "The Deep Ocean",
   "Lost Cities",
   "Ancient Babylon",
+  "The Moon",
   "Ancient China",
 ];
 
@@ -89,8 +88,9 @@ export function TitleGeneratorSection({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
-  // Catalog Dialog
+  // Reference Dialogs
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [standardsOpen, setStandardsOpen] = useState(false);
 
   const runGenerate = useServerFn(generateTitlesServer);
 
@@ -170,7 +170,7 @@ export function TitleGeneratorSection({
         },
       });
 
-      if (res.results.length > 0) {
+      if (res.results.length > 0 && res.results[0]) {
         const fresh = res.results[0];
         setResults((prev) =>
           prev.map((r) =>
@@ -209,32 +209,35 @@ export function TitleGeneratorSection({
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
         const firstSheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[firstSheetName];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (firstSheetName && workbook.Sheets[firstSheetName]) {
+          const sheet = workbook.Sheets[firstSheetName]!;
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        if (rows.length > 0) {
-          let topicColIndex = 0;
-          const headerRow = rows[0] || [];
-          for (let c = 0; c < headerRow.length; c++) {
-            const h = String(headerRow[c] || "").toLowerCase();
-            if (
-              h.includes("topic") ||
-              h.includes("title") ||
-              h.includes("keyword") ||
-              h.includes("niche")
-            ) {
-              topicColIndex = c;
-              break;
+          if (rows.length > 0) {
+            let topicColIndex = 0;
+            const headerRow = rows[0] || [];
+            for (let c = 0; c < headerRow.length; c++) {
+              const h = String(headerRow[c] || "").toLowerCase();
+              if (
+                h.includes("topic") ||
+                h.includes("title") ||
+                h.includes("keyword") ||
+                h.includes("niche")
+              ) {
+                topicColIndex = c;
+                break;
+              }
             }
-          }
 
-          const startRow = typeof headerRow[topicColIndex] === "string" && isNaN(Number(headerRow[topicColIndex])) ? 1 : 0;
-          for (let r = startRow; r < rows.length; r++) {
-            const cell = rows[r]?.[topicColIndex];
-            if (cell != null) {
-              const val = String(cell).trim();
-              if (val && val.length > 1 && !val.toLowerCase().startsWith("http")) {
-                extractedTopics.push(val);
+            const headerVal = headerRow[topicColIndex];
+            const startRow = typeof headerVal === "string" && isNaN(Number(headerVal)) ? 1 : 0;
+            for (let r = startRow; r < rows.length; r++) {
+              const cell = rows[r]?.[topicColIndex];
+              if (cell != null) {
+                const val = String(cell).trim();
+                if (val && val.length > 1 && !val.toLowerCase().startsWith("http")) {
+                  extractedTopics.push(val);
+                }
               }
             }
           }
@@ -270,7 +273,7 @@ export function TitleGeneratorSection({
   }
 
   function handleDownloadTemplate() {
-    const csvContent = "Topic\nAncient Egypt\nAntarctica\nDeep Space\nThe Deep Ocean\nLost Cities\nAncient Babylon\nAncient China\n";
+    const csvContent = "Topic\n" + SAMPLE_TOPICS.join("\n") + "\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -448,7 +451,7 @@ export function TitleGeneratorSection({
               </Badge>
             </h2>
             <p className="mt-2 text-sm text-muted-foreground max-w-2xl leading-relaxed">
-              We don't manufacture mystery — we discover mystery. Every title begins with a real fact,
+              We don't manufacture mystery — we discover mystery. Every title begins with a real, defensible fact,
               finds a compelling angle, applies a proven curiosity mechanism, and crafts a believable, high-CTR working title.
             </p>
           </div>
@@ -457,11 +460,21 @@ export function TitleGeneratorSection({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setStandardsOpen(true)}
+              className="h-9 gap-1.5 border-primary/30 text-xs bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Editorial Discipline Guide</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setCatalogOpen(true)}
               className="h-9 gap-1.5 border-border/80 text-xs bg-background/60 hover:bg-accent cursor-pointer"
             >
               <BookOpen className="h-3.5 w-3.5 text-primary" />
-              <span>16 Mechanisms Catalog</span>
+              <span>16 Mechanisms</span>
             </Button>
 
             {onOpenKeyModal && (
@@ -535,39 +548,58 @@ export function TitleGeneratorSection({
 
           {/* Mode 1: Single Topic */}
           {mode === "single" && (
-            <form onSubmit={handleSingleSubmit} className="mt-6 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Input
-                  value={singleTopic}
-                  onChange={(e) => setSingleTopic(e.target.value)}
-                  placeholder="Enter a broad topic (e.g. Ancient Egypt, Antarctica, Deep Space, The Deep Ocean)..."
-                  maxLength={150}
-                  className="h-12 text-sm bg-background/60 pr-10"
-                />
-                {singleTopic && (
-                  <button
-                    type="button"
-                    onClick={() => setSingleTopic("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+            <div className="mt-6 space-y-3">
+              <form onSubmit={handleSingleSubmit} className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Input
+                    value={singleTopic}
+                    onChange={(e) => setSingleTopic(e.target.value)}
+                    placeholder="Enter a documentary topic (e.g. Ancient Egypt, Antarctica, Roman Empire, Ancient Medicine)..."
+                    maxLength={150}
+                    className="h-12 text-sm bg-background/60 pr-10"
+                  />
+                  {singleTopic && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleTopic("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
 
-              <Button
-                type="submit"
-                disabled={!singleTopic.trim() || isGenerating}
-                className="h-12 px-6 gap-2 text-sm font-semibold cursor-pointer shrink-0"
-              >
-                {isGenerating ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                <span>Generate Titles</span>
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  disabled={!singleTopic.trim() || isGenerating}
+                  className="h-12 px-6 gap-2 text-sm font-semibold cursor-pointer shrink-0"
+                >
+                  {isGenerating ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  <span>Generate Titles</span>
+                </Button>
+              </form>
+
+              {/* Quick Curated Topic Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                <span className="text-[11px] font-medium text-foreground/80 flex items-center gap-1">
+                  <Lightbulb className="h-3 w-3 text-primary" /> Curated Topics:
+                </span>
+                {SAMPLE_TOPICS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setSingleTopic(t)}
+                    className="rounded-md border border-border/80 bg-background/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-primary transition-all cursor-pointer"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Mode 2: Bulk Topics Upload */}
@@ -694,13 +726,13 @@ export function TitleGeneratorSection({
                     onClick={handlePasteSamples}
                     className="h-6 text-[11px] text-primary hover:text-primary/80 px-2 cursor-pointer"
                   >
-                    Paste 7 Broad Topics
+                    Paste 10 Broad Topics
                   </Button>
                 </div>
                 <textarea
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder="Ancient Egypt&#10;Antarctica&#10;Deep Space&#10;The Deep Ocean&#10;Lost Cities&#10;Ancient Babylon&#10;Ancient China"
+                  placeholder={SAMPLE_TOPICS.join("\n")}
                   rows={4}
                   className="w-full rounded-xl border border-border/80 bg-background/60 p-3 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -1069,6 +1101,146 @@ export function TitleGeneratorSection({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Editorial Standards & Packaging Guide Dialog */}
+        <Dialog open={standardsOpen} onOpenChange={setStandardsOpen}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <span>Documentary Packaging Standard & Editorial Discipline Guide</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Master principles calibrated from the Day 3 workbook review: "Find a real mystery and package it clearly."
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 space-y-5 text-xs text-foreground/90">
+              {/* Core Formula Box */}
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                <h4 className="font-semibold text-sm text-primary flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4" />
+                  <span>The 4-Step Packaging Pipeline</span>
+                </h4>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono font-medium text-foreground">
+                  <span className="rounded bg-background px-2 py-1 border border-border">1. Fact / Premise</span>
+                  <span className="text-primary font-bold">→</span>
+                  <span className="rounded bg-background px-2 py-1 border border-border">2. Angle</span>
+                  <span className="text-primary font-bold">→</span>
+                  <span className="rounded bg-background px-2 py-1 border border-border">3. Curiosity Mechanism</span>
+                  <span className="text-primary font-bold">→</span>
+                  <span className="rounded bg-primary text-primary-foreground px-2 py-1">4. Working Title</span>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+                  Never start from: <em>"I need a mysterious title."</em> Always start from: <em>"Here is something genuinely interesting. What is the most compelling way to package it?"</em>
+                </p>
+              </div>
+
+              {/* 5 Golden Rules */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-sm text-foreground">5 Golden Editorial Rules</h4>
+
+                <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[11px] font-bold">1</span>
+                    <span>Epistemic Discipline & Defensible Premises</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pl-7">
+                    Avoid overconfident claims. Distinguish between <strong>empirical discoveries</strong> (e.g. ScanPyramids muon void), <strong>theoretical models</strong> (e.g. rogue planet subsurface oceans), <strong>ancient written lore</strong> (e.g. Cyrus diverting Euphrates), and <strong>unsettled debates</strong> (e.g. Mohenjo-daro decline). Eliminate evaluative superlatives (<em>"worst catastrophe in history"</em>, <em>"genius"</em>) and absolute claims (<em>"completely frozen"</em>, <em>"stronger than modern"</em>).
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[11px] font-bold">2</span>
+                    <span>Zero Generic Boilerplate / Narrow Broad Topics</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pl-7">
+                    Never write generic template sentences like <em>"Researchers continue to investigate the fundamental questions surrounding [Topic]..."</em> or <em>"What is the biggest mystery about [Topic]?"</em>. Always narrow down to: <strong>Specific Mystery + Specific Evidence + Specific Question</strong> (e.g. Moon → Permanently Shadowed Craters / Water Ice; Ancient Medicine → Edwin Smith Papyrus trauma neurosurgery).
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[11px] font-bold">3</span>
+                    <span>Preserve the Genuine Mystery</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pl-7">
+                    If an anomaly's purpose or cause is unknown (e.g. Great Pyramid void, Emperor Qin's unopened tomb), explore the competing hypotheses without pretending the answer is settled or claiming researchers <em>"refused to open"</em>. Focus on preservation, safety, and technological challenges: <em>"Why Has Emperor Qin's Central Tomb Remained Unopened?"</em>.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[11px] font-bold">4</span>
+                    <span>Accurate Technological & Scientific Framing</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pl-7">
+                    Never oversimplify technological breakthroughs (e.g. don't write <em>"AI read the scrolls"</em> — describe the actual technology: high-resolution X-ray/CT tomography + 3D computational unwrapping + machine learning). Remember that ancient ice cores don't <em>"predict the future"</em>; they provide historical atmospheric records to calibrate climate models.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[11px] font-bold">5</span>
+                    <span>Visual Potential for Generative Filmmaking (Google Flow Workflow)</span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pl-7">
+                    Package subjects with vivid visual possibilities: subglacial environments, geological cross-sections, drilling rigs, deep-ocean trenches, LiDAR flythroughs, microscopic cellular life, and micro-CT mummy scans. This visual potential is critical for generative video production.
+                  </p>
+                </div>
+              </div>
+
+              {/* Proven Packaging Formulas Table */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-sm text-foreground">Top Proven Packaging Formulas</h4>
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <table className="w-full border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-muted/60 border-b border-border">
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-32">Formula</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Exemplar Working Title</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-40">Psychological Trigger</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">Q + VE</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"What Would Happen If You Spent 24 Hours Near a Black Hole?"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Visceral human simulation of extreme physics</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">M + UC + Visual</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"The Toxic 'Underwater Lakes' Hidden on the Ocean Floor"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Impossible-sounding geological reality</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">D + IF</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"The Lost Civilization Archaeologists Finally Rediscovered Beneath the Amazon"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Hard laser evidence overturning conventional history</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">D (Cutting-Edge)</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"What Did Cosmic-Ray Scans Actually Find Inside the Great Pyramid?"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Modern particle physics revealing ancient secrets</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">HM</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"How Did Ancient Chinese Craftsmen Create Thousands of Terracotta Soldiers?"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Fascination with ancient precision engineering</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 font-mono font-bold text-primary">Defensible Q</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"How Did Ancient Egyptians Achieve Such Precise Stonework?"</td>
+                        <td className="px-3 py-2 text-muted-foreground">Direct physical puzzle without sensationalism</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
