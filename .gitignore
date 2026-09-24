@@ -35,3 +35,4 @@ dist-ssr
 *.sw?
 *.traineddata
 scratch/
+~$*

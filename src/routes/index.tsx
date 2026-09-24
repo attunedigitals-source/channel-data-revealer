@@ -23,6 +23,7 @@ import {
   Upload,
   Users,
   X,
+  Brain,
 } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/lib/thumbnail.functions";
 import { CompetitorSection } from "@/components/CompetitorSection";
 import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
+import { AudiencePsychologySection } from "@/components/AudiencePsychologySection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -201,6 +203,14 @@ function Index() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 Title Generator
               </a>
+              <span className="text-border">•</span>
+              <a
+                href="#audience-psychology"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1.5"
+              >
+                <Brain className="h-3.5 w-3.5 text-primary" />
+                Audience Psychology
+              </a>
             </nav>
 
             <Button
@@ -359,6 +369,11 @@ function Index() {
       />
 
       <TitleGeneratorSection
+        aiApiKey={aiApiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
+
+      <AudiencePsychologySection
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />

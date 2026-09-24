@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   ShieldCheck,
   Lightbulb,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -871,6 +872,20 @@ export function TitleGeneratorSection({
                 </Button>
 
                 <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("load-to-psychology", { detail: results }));
+                    document.getElementById("audience-psychology")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm"
+                  title="Send all results to Audience Psychology and The Click analysis"
+                >
+                  <Brain className="h-3.5 w-3.5" />
+                  <span>Audience Psychology ({results.length})</span>
+                </Button>
+
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
@@ -1027,6 +1042,18 @@ export function TitleGeneratorSection({
                       {/* Copy & Re-roll Actions */}
                       <td className="px-4 py-3.5 text-right align-top">
                         <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent("load-to-psychology", { detail: [row] }));
+                              document.getElementById("audience-psychology")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-primary transition-colors cursor-pointer"
+                            title="Analyze in Audience Psychology & The Click"
+                          >
+                            <Brain className="h-3.5 w-3.5" />
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleCopyTitle(row.id, row.workingTitle)}
