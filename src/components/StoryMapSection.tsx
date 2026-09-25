@@ -59,6 +59,8 @@ import {
   type EscalationStep,
   type VisualStorytellingScene,
   type OpenLoopItem,
+  type ResearchRequiredClaim,
+  DAY5_EGYPTIAN_RESEARCH_CLAIMS,
 } from "@/lib/storymap.functions";
 
 interface StoryMapSectionProps {
@@ -69,7 +71,7 @@ interface StoryMapSectionProps {
 export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionProps) {
   const [activeStory, setActiveStory] = useState<StoryMapDossier>(DAY5_EXEMPLAR_EGYPTIAN);
   const [storyList, setStoryList] = useState<StoryMapDossier[]>(ALL_DAY5_EXEMPLARS);
-  const [activeTab, setActiveTab] = useState<"worksheet" | "engine" | "first30s" | "escalation" | "visuals">("worksheet");
+  const [activeTab, setActiveTab] = useState<"worksheet" | "engine" | "first30s" | "escalation" | "visuals" | "research">("worksheet");
 
   // Modals
   const [isStudyGuideOpen, setIsStudyGuideOpen] = useState(false);
@@ -517,6 +519,52 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
         )}
       </div>
 
+      {/* Critique Lesson Alert: Story Structure vs Factual Certainty */}
+      <div className="mb-6 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-background to-amber-950/20 p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0 mt-0.5">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div className="space-y-1.5 flex-1">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-amber-300">
+                  Professional Documentary Lesson: Story Structure vs. Factual Certainty
+                </h4>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] h-4">
+                  4-Stage Pipeline
+                </Badge>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab("research")}
+                className="h-6 text-[11px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+              >
+                Inspect Claims Tracker ({activeStory.researchClaims?.length || 7}) →
+              </Button>
+            </div>
+            <p className="text-xs text-foreground/90 leading-relaxed">
+              <strong>Your story structure is stronger than your factual certainty.</strong> A professional documentary workflow separates:{" "}
+              <span className="font-semibold text-amber-300 font-mono">
+                STORY IDEA → HYPOTHESIS → EVIDENCE → VERIFIED NARRATION
+              </span>{" "}
+              rather than automatically turning an interesting explanation or experimental trial into an established fact.
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground/80">7 Flagged Claims:</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12-lb dolerite maul</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Razor blade seam trope</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">45,000-ton figure</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12 cm³/hr rate</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Three-rod method</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Quartz-grain mechanics</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Limestone guide blocks</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Preset Switcher & Input Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center mb-6 bg-card/60 border border-border/80 rounded-xl p-3.5 backdrop-blur shadow-sm">
         {/* Story Selector */}
@@ -778,6 +826,10 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             <TabsTrigger value="visuals" className="text-xs gap-1.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white cursor-pointer">
               <Film className="h-3.5 w-3.5" />
               <span>Google Flow Visuals</span>
+            </TabsTrigger>
+            <TabsTrigger value="research" className="text-xs gap-1.5 data-[state=active]:bg-amber-600 data-[state=active]:text-white cursor-pointer">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Research Discipline ({activeStory.researchClaims?.length || 7})</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1411,6 +1463,180 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ========================================================
+            TAB 6: PROFESSIONAL RESEARCH DISCIPLINE (FACT VS HYPOTHESIS)
+            ======================================================== */}
+        <TabsContent value="research" className="space-y-6">
+          <div className="rounded-xl border border-amber-500/30 bg-card p-5 space-y-5 shadow-sm">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-amber-400" />
+                <h4 className="text-base font-bold text-foreground">
+                  The Professional 4-Stage Documentary Pipeline
+                </h4>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                "Your story structure is stronger than your factual certainty." Professional documentary makers do not automatically turn an interesting explanation into established fact. They trace every claim through four distinct verification stages:
+              </p>
+            </div>
+
+            {/* 4-Stage Pipeline Visual */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              {[
+                {
+                  step: "01",
+                  title: "STORY IDEA",
+                  color: "border-blue-500/30 bg-blue-500/5 text-blue-400",
+                  desc: "What intriguing question or anomaly grabs the audience's attention?",
+                  example: "How did Egyptians fit hard granite so tightly?",
+                },
+                {
+                  step: "02",
+                  title: "HYPOTHESIS",
+                  color: "border-amber-500/30 bg-amber-500/5 text-amber-400",
+                  desc: "A proposed mechanism, modern experimental trial, or theoretical model.",
+                  example: "Hypothesis: copper saws with quartz sand slurry cut stone at ~12 cm³/hr.",
+                },
+                {
+                  step: "03",
+                  title: "EVIDENCE",
+                  color: "border-purple-500/30 bg-purple-500/5 text-purple-400",
+                  desc: "Physical artifacts, quarry assemblages, museum catalogs, or archaeological digs.",
+                  example: "Dolerite balls found in Aswan, SEM striations on Petrie's Core No. 7.",
+                },
+                {
+                  step: "04",
+                  title: "VERIFIED NARRATION",
+                  color: "border-emerald-500/30 bg-emerald-500/5 text-emerald-400",
+                  desc: "The factual script line that is 100% defensible, nuance-preserved, and verified.",
+                  example: "Documented sub-millimeter tolerances without sensationalist 'razor blade' tropes.",
+                },
+              ].map((stage) => (
+                <div
+                  key={stage.step}
+                  className={`rounded-lg border p-3.5 flex flex-col justify-between space-y-2 ${stage.color}`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-mono opacity-80 mb-1">
+                      <span>STAGE {stage.step}</span>
+                    </div>
+                    <div className="font-bold text-xs tracking-wide">{stage.title}</div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                      {stage.desc}
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-border/40 text-[10px] italic text-foreground/80">
+                    "{stage.example}"
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Claims Verification Table */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    Claims Requiring Primary Verification ({activeStory.researchClaims?.length || DAY5_EGYPTIAN_RESEARCH_CLAIMS.length})
+                  </h5>
+                  <p className="text-[11px] text-muted-foreground">
+                    Specific statements from the workbook identified as requiring primary verification before narration.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                    const text = claims
+                      .map(
+                        (c, i) =>
+                          `${i + 1}. [${c.category}] ${c.claim}\n   - Current Draft: "${c.currentDraftText}"\n   - Verified Alternative: "${c.verifiedAlternativeText}"\n   - Verification Action: ${c.verificationAction}\n`
+                      )
+                      .join("\n");
+                    navigator.clipboard.writeText(text);
+                    alert("Research Verification Checklist copied to clipboard!");
+                  }}
+                  className="h-7 text-[11px] gap-1.5 border-border/80 cursor-pointer"
+                >
+                  <Copy className="h-3 w-3" />
+                  <span>Copy Research Checklist</span>
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-border/80">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-secondary/60 border-b border-border text-muted-foreground text-left">
+                      <th className="px-3 py-2.5 font-semibold w-48">Claim & Beat</th>
+                      <th className="px-3 py-2.5 font-semibold w-32">Category</th>
+                      <th className="px-3 py-2.5 font-semibold">Unverified Draft Text</th>
+                      <th className="px-3 py-2.5 font-semibold">Verified Alternative / Fix</th>
+                      <th className="px-3 py-2.5 font-semibold w-56">Verification Action Required</th>
+                      <th className="px-3 py-2.5 font-semibold w-24 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {(activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS).map((item) => (
+                      <tr key={item.id} className="hover:bg-accent/25 transition-colors">
+                        <td className="px-3 py-3 align-top font-semibold text-foreground">
+                          <div>{item.claim}</div>
+                          <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                            {item.beatOrElement}
+                          </div>
+                        </td>
+
+                        <td className="px-3 py-3 align-top">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] h-4 ${
+                              item.category === "Popular Trope"
+                                ? "border-rose-500/40 text-rose-400 bg-rose-500/10"
+                                : item.category === "Experimental Metric"
+                                ? "border-blue-500/40 text-blue-400 bg-blue-500/10"
+                                : item.category === "Estimated Figure"
+                                ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                                : "border-purple-500/40 text-purple-400 bg-purple-500/10"
+                            }`}
+                          >
+                            {item.category}
+                          </Badge>
+                        </td>
+
+                        <td className="px-3 py-3 align-top text-rose-300/90 font-mono text-[11px] leading-relaxed">
+                          "{item.currentDraftText}"
+                        </td>
+
+                        <td className="px-3 py-3 align-top text-emerald-300/90 leading-relaxed font-medium">
+                          {item.verifiedAlternativeText}
+                        </td>
+
+                        <td className="px-3 py-3 align-top text-muted-foreground text-[11px] leading-relaxed">
+                          {item.verificationAction}
+                        </td>
+
+                        <td className="px-3 py-3 align-top text-center">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] h-4 ${
+                              item.status === "reframed"
+                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                : "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                            }`}
+                          >
+                            {item.status === "reframed" ? "Reframed" : "Needs Research"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </TabsContent>

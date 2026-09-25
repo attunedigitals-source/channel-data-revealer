@@ -57,6 +57,17 @@ export interface VisualStorytellingScene {
   googleFlowPrompt: string;
 }
 
+export interface ResearchRequiredClaim {
+  id: string;
+  claim: string;
+  beatOrElement: string;
+  category: "Hypothesis" | "Experimental Metric" | "Popular Trope" | "Estimated Figure" | "Workshop Tooling";
+  currentDraftText: string;
+  verifiedAlternativeText: string;
+  verificationAction: string;
+  status: "needs_research" | "verified" | "reframed";
+}
+
 export interface StoryMapDossier {
   id: string;
   workingTitle: string;
@@ -77,6 +88,7 @@ export interface StoryMapDossier {
   openLoops: OpenLoopItem[];
   visualScenes: VisualStorytellingScene[];
   needsResearchItems: string[];
+  researchClaims?: ResearchRequiredClaim[];
   storyEngine: {
     question: string;
     investigation: string;
@@ -103,11 +115,84 @@ export const STORY_ELEMENT_NAMES = [
   "Closing Thought",
 ] as const;
 
+export const DAY5_EGYPTIAN_RESEARCH_CLAIMS: ResearchRequiredClaim[] = [
+  {
+    id: "rc-1",
+    claim: "Exact 12-lb weight of diorite pounder",
+    beatOrElement: "Beat 1 (Cold Open) & Beat 4",
+    category: "Estimated Figure",
+    currentDraftText: "a 12-pound spherical black diorite pounder",
+    verifiedAlternativeText: "heavy spherical dolerite pounders (quarry assemblages commonly vary between 4 and 12 lbs)",
+    verificationAction: "Verify primary archaeological records for dolerite maul weight distributions from Aswan quarry excavations before stating as narration fact.",
+    status: "needs_research",
+  },
+  {
+    id: "rc-2",
+    claim: "Claim that a seam is so tight that a razor cannot enter",
+    beatOrElement: "Beat 1 (Cold Open) & First 30s",
+    category: "Popular Trope",
+    currentDraftText: "seams are so tight you cannot slide a razor blade between them",
+    verifiedAlternativeText: "fitted with sub-millimeter precision (mean joint thickness ~0.5 mm recorded by Petrie)",
+    verificationAction: "Replace popular viral trope with Flinders Petrie's 1883 precision optical surveys of casing stones.",
+    status: "reframed",
+  },
+  {
+    id: "rc-3",
+    claim: "The 45,000-ton figure for hard stone",
+    beatOrElement: "Beat 3 (Context)",
+    category: "Estimated Figure",
+    currentDraftText: "over 45,000 tons of hard igneous stone",
+    verifiedAlternativeText: "thousands of tons of monumental granite and basalt across Old Kingdom complexes",
+    verificationAction: "Verify primary geological survey estimates for total monumental granite quarried in the 4th Dynasty.",
+    status: "needs_research",
+  },
+  {
+    id: "rc-4",
+    claim: "The exact 12 cm³/hour cutting rate",
+    beatOrElement: "Beat 6 (Explanation)",
+    category: "Experimental Metric",
+    currentDraftText: "sliced channels at roughly 12 cm³ per hour",
+    verifiedAlternativeText: "In modern controlled trials, Stocks recorded average cutting rates around 12 cm³/hr, though rates varied drastically by pressure, blade thickness, and slurry viscosity",
+    verificationAction: "Cite Denys Stocks (2003) 'Experiments in Egyptian Archaeology' p. 115–128 with full experimental parameters.",
+    status: "needs_research",
+  },
+  {
+    id: "rc-5",
+    claim: "The specific 'three-rod method'",
+    beatOrElement: "Beat 4 (Investigation) & Beat 6 (Explanation)",
+    category: "Hypothesis",
+    currentDraftText: "surface flatness was measured using the 'three-rod method'",
+    verifiedAlternativeText: "craftsmen used planar referencing methods—theorized by archaeologists to include red-ochre scraping blocks and optical three-rod triangulation",
+    verificationAction: "Check whether the three-rod technique is physically attested in Egyptian tomb reliefs/papyruses or is a modern masonry hypothesis.",
+    status: "needs_research",
+  },
+  {
+    id: "rc-6",
+    claim: "Drill core and quartz-grain rolling mechanics",
+    beatOrElement: "Beat 5 (Complication) & Beat 6 (Discovery)",
+    category: "Hypothesis",
+    currentDraftText: "cutting was done by quartz sand granules rolling and fracturing under pressure",
+    verifiedAlternativeText: "SEM analysis suggests rolling quartz sand abrasion as a primary mechanism, though debate continues regarding slurry dynamics and fixed vs loose grain wear",
+    verificationAction: "Cross-reference Petrie (1883), Stocks (2001), and recent SEM tribological studies on copper-abrasive wear.",
+    status: "needs_research",
+  },
+  {
+    id: "rc-7",
+    claim: "Limestone guide blocks stabilized tubular drills",
+    beatOrElement: "Beat 6 (Discovery / Evidence)",
+    category: "Hypothesis",
+    currentDraftText: "limestone guide blocks pinned to the rock face stabilized tubular drills",
+    verifiedAlternativeText: "experimental reconstructions suggest guide blocks may have stabilized tubular drills to prevent surface skidding",
+    verificationAction: "Verify whether physical stone guide block artifacts have been excavated at Old Kingdom sites or if this remains an unconfirmed experimental reconstruction.",
+    status: "needs_research",
+  },
+];
+
 // 1. Day 5 Practical Exercise Exemplar (Egyptian Stonework - Official Assignment)
 export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
   id: "day5-exemplar-egypt",
   workingTitle: "How Did Ancient Egyptians Achieve Such Precise Stonework?",
-  coreQuestion: "How did ancient Egyptian craftsmen shape, hollow, and align ultra-hard igneous rocks like granite and basalt to sub-millimeter tolerances using Bronze Age copper tools and pounding stones without steel or powered machinery?",
+  coreQuestion: "How did ancient Egyptian craftsmen shape, hollow, and align ultra-hard igneous rocks like granite and basalt using Bronze Age copper tools and pounding stones without steel or powered machinery?",
   premise: "Ancient Egyptian builders produced and fitted large stone structures using tools and techniques including stone pounders, copper tools, abrasives and sledges; the exact methods used for some precision work remain an area of archaeological study.",
   angle: "Precision Stonework & Material Physics",
   code: "IO",
@@ -116,8 +201,9 @@ export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
   clickMotivation: "KNOW",
   informationGap: "We know colossal megaliths fit together tightly, but the exact abrasive techniques and mechanical tolerances without iron/steel tools remain actively investigated.",
   stakes: "Technological & Historical: Tests whether Bronze Age humans could achieve monumental architectural alignment using natural physics, or if modern assumptions underestimate ancient ingenuity.",
-  visualHookPrompt: "Close-up cinematic macro shot of a massive diorite stone pounder repeatedly impacting crystalline rose granite, sending dust clouds over a colossal megalithic joint.",
+  visualHookPrompt: "Close-up cinematic macro shot of a heavy spherical dolerite stone pounder repeatedly impacting crystalline rose granite, sending dust clouds over a colossal megalithic joint.",
   titlePromise: "The video will break down the physical experiments, copper-abrasive slurries, and quarry evidence showing how ancient masons shaped hard stone.",
+  researchClaims: DAY5_EGYPTIAN_RESEARCH_CLAIMS,
   elements: [
     {
       num: 1,
@@ -140,49 +226,55 @@ export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
     {
       num: 4,
       storyElement: "Cold Open",
-      yourAnswer: "Visual: Extreme macro shot of a 12-pound spherical black diorite pounder striking crystalline pink granite in slow motion; fine quartz dust explodes into raking sunlight across a seam so tight no light passes through.\nNarration: 'This stone block was shaped more than 4,500 years ago. Its surface is remarkably flat, and its seams are so tight you cannot slide a razor blade between them.'",
-      notes: "Beat 1: Kinetic visual hook + strange fact without revealing the answer.",
+      yourAnswer: "Visual: Extreme macro shot of a heavy spherical dolerite pounder striking crystalline pink granite in slow motion; fine quartz dust explodes into raking sunlight across a tightly jointed megalithic seam.\nNarration: 'This stone block was shaped more than 4,500 years ago. Its surface is remarkably flat, and its seams are fitted with sub-millimeter precision.'\n\n[Needs research: (1) Verify museum weight distribution for Aswan dolerite mauls rather than asserting an exact 12-lb figure; (2) Cite Petrie's measured survey tolerances (~0.5mm mean joint) instead of the popular unverified 'razor blade cannot enter' trope.]",
+      notes: "Beat 1: Kinetic visual hook + strange fact without revealing the answer. Flags 2 research-required claims.",
+      isNeedsResearch: true,
     },
     {
       num: 5,
       storyElement: "Big Question",
-      yourAnswer: "Visual: Pull back from the microscopic joint to reveal the colossal King's Chamber granite sarcophagus and unfinished obelisk in Aswan.\nNarration: 'Yet the people who carved it possessed no iron, no steel, and no diamond saws. So how did ancient Egyptian craftsmen achieve this level of precision with the tools available to them? To answer that, we have to look past the finished monuments and into the toolmarks left behind in the ancient quarries.'",
+      yourAnswer: "Visual: Pull back from the microscopic joint to reveal the colossal King's Chamber granite sarcophagus and unfinished obelisk in Aswan.\nNarration: 'Yet the people who carved it possessed no iron, no hardened steel, and no diamond saws. So how did ancient Egyptian craftsmen achieve this level of precision with the tools available to them? To answer that, we have to look past the finished monuments and into the toolmarks left behind in the ancient quarries.'",
       notes: "Beat 2: Establishes the mission and promise for the entire video.",
     },
     {
       num: 6,
       storyElement: "Context",
-      yourAnswer: "During the Old and Middle Kingdoms (c. 2600–1800 BCE), Egyptian state projects quarried millions of tons of limestone and over 45,000 tons of hard igneous stone. Their metallurgy was limited to arsenical copper and bronze—alloys far softer than quartz crystals in granite. The dilemma is not whether they built it—the physical artifacts stand before us—but the exact physical mechanisms of material removal and precision measurement.",
-      notes: "Beat 3: Who, When, Where, Why without reading like a dry textbook.",
+      yourAnswer: "During the Old and Middle Kingdoms (c. 2600–1800 BCE), Egyptian state projects quarried millions of tons of limestone and thousands of tons of hard igneous stone. Their metallurgy was limited to arsenical copper and bronze—alloys far softer than quartz crystals in granite. The dilemma is not whether they built it—the physical artifacts stand before us—but the exact physical mechanisms of material removal and precision measurement.\n\n[Needs research: Verify primary archaeological and geological estimates for total Old Kingdom monumental granite tonnage quarried rather than citing an unverified 45,000-ton figure.]",
+      notes: "Beat 3: Who, When, Where, Why. Flags total tonnage estimate for primary source verification.",
+      isNeedsResearch: true,
     },
     {
       num: 7,
       storyElement: "Investigation",
-      yourAnswer: "Experimental archaeologists, notably Denys Stocks and Mark Lehner, replicated ancient stonework techniques at Giza and Aswan. They systematically tested three distinct craft workflows: (1) heavy percussive fracturing using spherical dolerite pounders dropped from controlled heights, (2) tubular and flat saw cutting using copper blades fed with wet quartz sand abrasive slurry, and (3) precision surface dressing using flat wooden reference planes coated with red ochre pigment.",
+      yourAnswer: "Experimental archaeologists, notably Denys Stocks and Mark Lehner, replicated ancient stonework techniques at Giza and Aswan. They investigated three primary craft workflows: (1) percussive fracturing using spherical dolerite pounders, (2) tubular and flat saw cutting using copper blades fed with quartz sand abrasive slurry, and (3) surface dressing using reference planes and red ochre pigment.\n\n[Needs research: Distinguish documented physical tool finds (copper blades, dolerite balls, red-ochre marked stones) from modern experimental reconstructions to maintain evidence discipline.]",
       notes: "Beat 4: Moving into the physical workshop and experimental test sites.",
+      isNeedsResearch: true,
     },
     {
       num: 8,
       storyElement: "Complication",
-      yourAnswer: "The Abrasive Paradox: Quartz sand has a Mohs hardness of 7—the exact same hardness as the quartz grains within the granite matrix. If the abrasive isn't harder than the stone, how could they saw massive sarcophagi without destroying tons of precious copper blades? Moreover, how were circular core drills stabilized without modern mechanical drill presses slipping across the convex rock face?",
-      notes: "Beat 5: Introduces genuine technical tension and difficulty instead of a flat sequence of facts.",
+      yourAnswer: "The Abrasive Paradox: Quartz sand has a Mohs hardness of 7—the same hardness as the quartz grains within the granite matrix. If the abrasive isn't harder than the stone, how could they saw massive sarcophagi without destroying immense amounts of precious copper? Moreover, how were circular core drills stabilized without modern mechanical drill presses slipping across the rock face?\n\n[Needs research: Determine whether archaeological evidence reveals a genuine recorded difficulty or if modern researchers are solving a problem ancient craft guilds handled through continuous lubrication and tool recycling.]",
+      notes: "Beat 5: Introduces genuine technical tension. Notes hypothesis status.",
+      isNeedsResearch: true,
     },
     {
       num: 9,
       storyElement: "Discovery / Evidence",
-      yourAnswer: "Scanning electron microscopy (SEM) of Petrie's famous drill core No. 7 and microscopic striations in unfinished quarry trenches revealed that the cutting was not done by copper teeth, but by quartz sand granules rolling and fracturing under immense downward pressure. The copper blade acted as a sacrificial carrier; the sharp angular quartz facets sheared microscopic mineral grains away. Furthermore, limestone guide blocks pinned to the rock face stabilized tubular drills.",
-      notes: "Beat 6 (Part 1): Physical evidence and measurements that resolve the complication.",
+      yourAnswer: "Microscopic striation analysis of Petrie's drill core No. 7 and unfinished quarry trenches suggests that cutting was facilitated by quartz sand granules rolling and micro-fracturing stone under heavy downward pressure, with the copper blade acting as a sacrificial carrier. Furthermore, researchers hypothesize that guide blocks were used to keep drill stems steady.\n\n[Needs research: (1) Review petrological debate regarding rolling vs embedded quartz-grain attrition in copper saw kerfs; (2) Verify whether physical limestone guide block artifacts have been excavated at Old Kingdom sites or if guide blocks remain an unconfirmed experimental hypothesis.]",
+      notes: "Beat 6 (Part 1): Separates physical core striations from hypothetical guide block reconstructions.",
+      isNeedsResearch: true,
     },
     {
       num: 10,
       storyElement: "Explanation",
-      yourAnswer: "The precision was achieved not by high speed, but through continuous mechanical attrition and optical calibration: (1) dolerite pounding crushed crystalline bonds under impact, removing bulk rock; (2) copper blades and abrasive sand slurry sliced channels at roughly 12 cm³ per hour; and (3) surface flatness was measured using the 'three-rod method' with taut strings and red ochre rubbing blocks, iteratively grinding high spots down until total planar contact was achieved.",
-      notes: "Beat 6 (Part 2): The clear scientific and mechanical explanation.",
+      yourAnswer: "Modern experimental models suggest the precision was achieved through continuous mechanical attrition and optical calibration: (1) dolerite pounding crushed crystalline bonds under impact; (2) copper blades with abrasive slurry ground channels at rates documented by Stocks in modern tests; and (3) surface flatness was tested using red ochre rubbing blocks and hypothesized reference methods (such as the three-rod triangulation technique), grinding high spots until planar contact was achieved.\n\n[Needs research: (1) Cite Denys Stocks' specific experimental conditions for saw cutting rates (which varied widely by blade thickness, weight, and slurry) rather than stating '12 cm³/hr' as an absolute historical fact; (2) Cite primary evidence for workshop leveling techniques to determine whether the 'three-rod method' is attested in ancient Egyptian records or is an imported classical/modern masonry concept.]",
+      notes: "Beat 6 (Part 2): Grounded mechanical explanation with explicit research citations.",
+      isNeedsResearch: true,
     },
     {
       num: 11,
       storyElement: "Final Payoff",
-      yourAnswer: "The tight joints were not created by laser-like cutting, but by grinding matching stone faces against each other in situ with abrasive sand until they seated perfectly together. What appeared to be impossible engineering is revealed as an extraordinary mastery of physics, mineral friction, and organized craft labor repeated across generations.",
+      yourAnswer: "The tight joints were not created by laser-like cutting, but by grinding matching stone faces against each other in situ with abrasive sand until they seated together. What appeared to be impossible engineering is revealed as an extraordinary mastery of physics, mineral friction, and organized craft labor repeated across generations.",
       notes: "Beat 7 (Part 1): Fully answers the central question and gives closure.",
     },
     {
@@ -196,14 +288,14 @@ export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
     visualHook0to5s: {
       timing: "0–5s",
       label: "VISUAL HOOK",
-      visualShot: "Extreme macro 4K close-up of a dark spherical dolerite pounder striking crystalline rose granite; quartz dust explodes under low-angle golden light across a razor-thin megalithic joint.",
+      visualShot: "Extreme macro 4K close-up of a heavy dark spherical dolerite pounder striking crystalline rose granite; quartz dust explodes under low-angle golden light across a tightly fitted megalithic joint.",
       soundCues: "Resonant, heavy stone-on-stone impact followed by the sharp crunch of shattered quartz grains and silence.",
     },
     strangeClaim5to12s: {
       timing: "5–12s",
       label: "STRANGE FACT / EVENT / CLAIM",
-      narration: "This block was shaped more than 4,500 years ago. Its surface is remarkably flat, and its seams are so tight you cannot slide a razor blade between them.",
-      visualAction: "A researcher gently attempts to slide a 0.05mm steel feeler gauge into the joint between two colossal casing stones; it stops dead with zero penetration.",
+      narration: "This block was shaped more than 4,500 years ago. Its surface is remarkably flat, and its seams are fitted with sub-millimeter precision.",
+      visualAction: "Archival footage of surveyor precision instruments and historical joint measurements on casing blocks at Giza.",
     },
     question12to20s: {
       timing: "12–20s",
@@ -276,9 +368,9 @@ export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
     {
       shotNumber: 2,
       shotType: "Medium Cinematic Shot",
-      narration: "A researcher slides a feeler gauge across the joint. Zero gap.",
-      visualAction: "Hands of an archaeologist carefully testing the seam between two limestone casing blocks with historical measurement tools.",
-      googleFlowPrompt: "Archaeologist in dusty linen shirt inspecting ancient stone seam with precision steel ruler, ancient temple background in soft focus, documentary style, authentic historical expedition lighting.",
+      narration: "A surveyor examines the casing stones. Optical measurements reveal seams fitted to within fractions of a millimeter.",
+      visualAction: "Archival survey records and precision optical instruments examining casing stone joints at Giza.",
+      googleFlowPrompt: "Archaeologist in dusty linen shirt inspecting ancient stone seam with precision measurement instruments, ancient temple background in soft focus, documentary style, authentic historical expedition lighting.",
     },
     {
       shotNumber: 3,
@@ -290,8 +382,8 @@ export const DAY5_EXEMPLAR_EGYPTIAN: StoryMapDossier = {
     {
       shotNumber: 4,
       shotType: "High-Speed Macro Strike",
-      narration: "Workers dropped spherical dolerite pounders thousands of times per shift.",
-      visualAction: "Slow-motion 240fps capture of a 10-pound black dolerite ball smashing into pink granite, micro-fracturing the rock face into powder.",
+      narration: "Workers repeatedly dropped spherical dolerite pounders to fracture the stone surface.",
+      visualAction: "Slow-motion 240fps capture of a heavy black dolerite ball striking pink granite, micro-fracturing the rock face into powder.",
       googleFlowPrompt: "Ultra-slow-motion high-speed 240fps capture of a heavy black dolerite stone hammer hitting pink granite stone, dust and mineral chips exploding on impact, volumetric dust rays.",
     },
     {
@@ -870,8 +962,14 @@ Follow these strict DAY 5 STORYTELLING RULES:
    - 5–12s: Strange Fact / Event / Claim
    - 12–20s: Question (Information gap)
    - 20–30s: Promise (Mission contract)
-5. Escalation Ladder: 5 progressive levels (Level 1: Interesting → Level 2: More Interesting → Level 3: Surprising → Level 4: Significant → Level 5: Revelation).
-6. Research Discipline: If a fact is unverified or requires deeper archival/scientific confirmation, explicitly prefix or note it with "Needs research — [details]". NEVER invent fake conspiracies or manufactured mysteries.
+6. RESEARCH DISCIPLINE & FACTUAL CERTAINTY (CRITICAL PROFESSIONAL LESSON):
+   - A professional documentary workflow strictly separates:
+     STORY IDEA → HYPOTHESIS → EVIDENCE → VERIFIED NARRATION
+   - DO NOT automatically turn an interesting explanation, theoretical reconstruction, or experimental trial into an established historical fact in narration!
+   - Distinguish documented physical evidence (artifacts, inscriptions, museum catalog finds) from experimental hypotheses (modern workshop trials, suggested jigs, theoretical rates).
+   - If a claim is an unconfirmed hypothesis, modern experimental estimate, or theoretical reconstruction, explicitly flag it in yourAnswer with:
+     "[Needs research: verify primary archaeological source / experimental parameters]".
+   - Avoid viral sensationalist tropes (e.g. "a razor cannot enter", "impossible precision") and replace them with measured real-world metrics.
 
 PROJECT INPUT:
 - Working Title: "${data.workingTitle}"
