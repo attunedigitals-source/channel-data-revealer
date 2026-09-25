@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Lightbulb,
   Brain,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -886,6 +887,20 @@ export function TitleGeneratorSection({
                 </Button>
 
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("load-to-storymap", { detail: results }));
+                    document.getElementById("story-map")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="h-8 gap-1.5 text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer shadow-sm"
+                  title="Send top generated title into a 7-Beat Story Map (Day 5)"
+                >
+                  <Compass className="h-3.5 w-3.5" />
+                  <span>Story Map</span>
+                </Button>
+
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
@@ -1052,6 +1067,18 @@ export function TitleGeneratorSection({
                             title="Analyze in Audience Psychology & The Click"
                           >
                             <Brain className="h-3.5 w-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent("load-to-storymap", { detail: [row] }));
+                              document.getElementById("story-map")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className="rounded p-1.5 text-indigo-400 hover:bg-indigo-500/15 hover:text-indigo-300 transition-colors cursor-pointer"
+                            title="Map into 7-Beat Story Map (Day 5)"
+                          >
+                            <Compass className="h-3.5 w-3.5" />
                           </button>
 
                           <button

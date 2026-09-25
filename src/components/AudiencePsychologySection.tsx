@@ -26,6 +26,7 @@ import {
   Layers,
   ArrowRight,
   Flame,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -956,6 +957,25 @@ export function AudiencePsychologySection({
                 </Button>
 
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const target = filteredResults[0] || results[0];
+                    if (target) {
+                      window.dispatchEvent(new CustomEvent("load-to-storymap", { detail: [target] }));
+                      const el = document.getElementById("story-map");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  disabled={filteredResults.length === 0}
+                  className="h-8 gap-1.5 text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                  title="Send active idea to Story Map (Day 5)"
+                >
+                  <Compass className="h-3.5 w-3.5" />
+                  <span>Story Map</span>
+                </Button>
+
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
@@ -1132,6 +1152,19 @@ export function AudiencePsychologySection({
                               ) : (
                                 <Copy className="h-3.5 w-3.5" />
                               )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent("load-to-storymap", { detail: [row] }));
+                                const el = document.getElementById("story-map");
+                                if (el) el.scrollIntoView({ behavior: "smooth" });
+                              }}
+                              className="rounded p-1.5 text-indigo-400 hover:bg-indigo-500/15 hover:text-indigo-300 transition-colors cursor-pointer"
+                              title="Map into 7-Beat Story Map (Day 5)"
+                            >
+                              <Compass className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </td>

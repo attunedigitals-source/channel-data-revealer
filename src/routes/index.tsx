@@ -24,6 +24,7 @@ import {
   Users,
   X,
   Brain,
+  Compass,
 } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import {
@@ -34,6 +35,7 @@ import {
 import { CompetitorSection } from "@/components/CompetitorSection";
 import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
 import { AudiencePsychologySection } from "@/components/AudiencePsychologySection";
+import { StoryMapSection } from "@/components/StoryMapSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -211,6 +213,14 @@ function Index() {
                 <Brain className="h-3.5 w-3.5 text-primary" />
                 Audience Psychology
               </a>
+              <span className="text-border">•</span>
+              <a
+                href="#story-map"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1.5"
+              >
+                <Compass className="h-3.5 w-3.5 text-indigo-400" />
+                Story Map
+              </a>
             </nav>
 
             <Button
@@ -374,6 +384,11 @@ function Index() {
       />
 
       <AudiencePsychologySection
+        aiApiKey={aiApiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
+
+      <StoryMapSection
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
