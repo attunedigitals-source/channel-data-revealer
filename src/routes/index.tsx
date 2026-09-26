@@ -36,6 +36,7 @@ import { CompetitorSection } from "@/components/CompetitorSection";
 import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
 import { AudiencePsychologySection } from "@/components/AudiencePsychologySection";
 import { StoryMapSection } from "@/components/StoryMapSection";
+import { ProductionStudio } from "@/components/ProductionStudio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,17 +47,17 @@ import { ApiKeyModal, API_KEY_STORAGE_KEY, AI_KEY_STORAGE_KEY } from "@/componen
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Channel Sheet — YouTube Channel Data Extractor" },
+      { title: "Storyframe — YouTube Production Studio" },
       {
         name: "description",
         content:
-          "Paste any YouTube channel URL and get subscribers, video count, niche, average length, upload frequency, best video and style in one row.",
+          "Research, plan, produce, publish, and learn from cinematic YouTube documentaries in one production workspace.",
       },
-      { property: "og:title", content: "Channel Sheet — YouTube Channel Data Extractor" },
+      { property: "og:title", content: "Storyframe — YouTube Production Studio" },
       {
         property: "og:description",
         content:
-          "Turn any YouTube channel link into a clean data row: subs, videos, niche, upload frequency, best video and style.",
+          "Your end-to-end workspace for research-driven YouTube documentary production.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -164,6 +165,19 @@ function Index() {
 
   return (
     <main className="min-h-screen bg-background">
+      <ProductionStudio
+        onOpenResearchTools={() =>
+          document.getElementById("competition-analysis")?.scrollIntoView({ behavior: "smooth" })
+        }
+        onOpenTitleTools={() =>
+          document.getElementById("title-generator")?.scrollIntoView({ behavior: "smooth" })
+        }
+        onOpenStoryTools={() =>
+          document.getElementById("story-map")?.scrollIntoView({ behavior: "smooth" })
+        }
+        onOpenApiConfig={() => setKeyModalOpen(true)}
+        aiApiKey={aiApiKey}
+      />
       <div
         className="border-b border-border"
         style={{ backgroundImage: "var(--gradient-hero)" }}
@@ -172,7 +186,7 @@ function Index() {
           <header className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-2 text-primary">
               <Play className="h-5 w-5 fill-current" />
-              <span className="text-sm font-semibold uppercase tracking-[0.2em]">Channel Sheet</span>
+              <span className="text-sm font-semibold uppercase tracking-[0.2em]">Research Toolkit</span>
             </div>
 
             <nav className="hidden sm:flex items-center gap-1 rounded-full border border-border/80 bg-background/60 backdrop-blur px-3 py-1 text-xs">

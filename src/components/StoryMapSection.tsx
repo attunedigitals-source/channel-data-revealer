@@ -51,7 +51,6 @@ import {
   DAY5_EXEMPLAR_EGYPTIAN,
   DAY5_EXEMPLAR_SCANPYRAMIDS,
   DAY5_EXEMPLAR_UAP,
-  ALL_DAY5_EXEMPLARS,
   generateStoryMapServer,
   generateHeuristicStoryMap,
   type StoryMapDossier,
@@ -60,7 +59,6 @@ import {
   type VisualStorytellingScene,
   type OpenLoopItem,
   type ResearchRequiredClaim,
-  DAY5_EGYPTIAN_RESEARCH_CLAIMS,
 } from "@/lib/storymap.functions";
 
 interface StoryMapSectionProps {
@@ -69,8 +67,34 @@ interface StoryMapSectionProps {
 }
 
 export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionProps) {
-  const [activeStory, setActiveStory] = useState<StoryMapDossier>(DAY5_EXEMPLAR_EGYPTIAN);
-  const [storyList, setStoryList] = useState<StoryMapDossier[]>(ALL_DAY5_EXEMPLARS);
+  const [activeStory, setActiveStory] = useState<StoryMapDossier>(() => ({
+    ...DAY5_EXEMPLAR_EGYPTIAN,
+    id: "new-story",
+    workingTitle: "",
+    coreQuestion: "",
+    premise: "",
+    angle: "",
+    targetViewer: "",
+    clickMotivation: undefined,
+    informationGap: "",
+    stakes: "",
+    visualHookPrompt: "",
+    titlePromise: "",
+    elements: DAY5_EXEMPLAR_EGYPTIAN.elements.map((element) => ({ ...element, yourAnswer: "", notes: "", isNeedsResearch: false })),
+    first30Seconds: {
+      visualHook0to5s: { ...DAY5_EXEMPLAR_EGYPTIAN.first30Seconds.visualHook0to5s, visualShot: "", soundCues: "" },
+      strangeClaim5to12s: { ...DAY5_EXEMPLAR_EGYPTIAN.first30Seconds.strangeClaim5to12s, narration: "", visualAction: "" },
+      question12to20s: { ...DAY5_EXEMPLAR_EGYPTIAN.first30Seconds.question12to20s, narration: "", visualAction: "" },
+      promise20to30s: { ...DAY5_EXEMPLAR_EGYPTIAN.first30Seconds.promise20to30s, narration: "", visualAction: "" },
+    },
+    escalationLadder: DAY5_EXEMPLAR_EGYPTIAN.escalationLadder.map((step) => ({ ...step, description: "" })),
+    openLoops: [],
+    visualScenes: [],
+    needsResearchItems: [],
+    researchClaims: [],
+    storyEngine: { question: "", investigation: "", complication: "", discovery: "", explanation: "", payoff: "" },
+  }));
+  const [storyList, setStoryList] = useState<StoryMapDossier[]>([]);
   const [activeTab, setActiveTab] = useState<"worksheet" | "engine" | "first30s" | "escalation" | "visuals" | "research">("worksheet");
 
   // Modals
@@ -541,7 +565,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                 onClick={() => setActiveTab("research")}
                 className="h-6 text-[11px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
               >
-                Inspect Claims Tracker ({activeStory.researchClaims?.length || 7}) →
+                Inspect Claims Tracker ({activeStory.researchClaims?.length ?? 0}) →
               </Button>
             </div>
             <p className="text-xs text-foreground/90 leading-relaxed">
@@ -829,7 +853,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             </TabsTrigger>
             <TabsTrigger value="research" className="text-xs gap-1.5 data-[state=active]:bg-amber-600 data-[state=active]:text-white cursor-pointer">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span>Research Discipline ({activeStory.researchClaims?.length || 7})</span>
+              <span>Research Discipline ({activeStory.researchClaims?.length ?? 0})</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1541,7 +1565,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    Claims Requiring Primary Verification ({activeStory.researchClaims?.length || DAY5_EGYPTIAN_RESEARCH_CLAIMS.length})
+                    Claims Requiring Primary Verification ({activeStory.researchClaims?.length ?? 0})
                   </h5>
                   <p className="text-[11px] text-muted-foreground">
                     Specific statements from the workbook identified as requiring primary verification before narration.
@@ -1552,7 +1576,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                    const claims = activeStory.researchClaims || [];
                     const text = claims
                       .map(
                         (c, i) =>
@@ -1582,7 +1606,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {(activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS).map((item) => (
+                    {(activeStory.researchClaims || []).map((item) => (
                       <tr key={item.id} className="hover:bg-accent/25 transition-colors">
                         <td className="px-3 py-3 align-top font-semibold text-foreground">
                           <div>{item.claim}</div>
