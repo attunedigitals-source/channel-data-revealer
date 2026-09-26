@@ -38,10 +38,10 @@ Return a production-ready draft in plain text with these headings:
 For each section, label VISUAL, NARRATION, and SOURCE NOTES separately. Write original narration at a natural spoken pace, use short paragraphs, and include [SOURCE NEEDED] markers where evidence is missing. End with a short list of the highest-priority claims the creator must verify before recording.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.65, maxOutputTokens: 8192 },

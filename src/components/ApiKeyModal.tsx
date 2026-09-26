@@ -239,7 +239,7 @@ export function ApiKeyModal({
               <Input
                 id="ai-api-key"
                 type={showAiKey ? "text" : "password"}
-                placeholder="AIzaSy... or sk-..."
+                placeholder="AQ...., AIzaSy..., or sk-..."
                 value={aiInputValue}
                 onChange={(e) => setAiInputValue(e.target.value)}
                 className="pr-10 font-mono text-sm"
