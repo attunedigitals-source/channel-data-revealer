@@ -32,6 +32,7 @@ import {
   MessageSquareQuote,
   Lightbulb,
   Zap,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -69,9 +70,19 @@ interface StoryMapSectionProps {
 }
 
 export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionProps) {
-  const [activeStory, setActiveStory] = useState<StoryMapDossier>(DAY5_EXEMPLAR_EGYPTIAN);
-  const [storyList, setStoryList] = useState<StoryMapDossier[]>(ALL_DAY5_EXEMPLARS);
+  const [activeStory, setActiveStory] = useState<StoryMapDossier | null>(null);
+  const [storyList, setStoryList] = useState<StoryMapDossier[]>([]);
   const [activeTab, setActiveTab] = useState<"worksheet" | "engine" | "first30s" | "escalation" | "visuals" | "research">("worksheet");
+
+  const loadExemplar = (exemplar: StoryMapDossier) => {
+    setActiveStory(exemplar);
+    setStoryList((prev) => [exemplar, ...prev.filter((s) => s.id !== exemplar.id)]);
+  };
+
+  const handleClearStory = () => {
+    setActiveStory(null);
+    setStoryList([]);
+  };
 
   // Modals
   const [isStudyGuideOpen, setIsStudyGuideOpen] = useState(false);
@@ -224,6 +235,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
   // Copy full 12-element worksheet as clean markdown
   const copyAllMarkdown = () => {
+    if (!activeStory) return;
     const text = activeStory.elements
       .map((el) => `### ${el.num}. ${el.storyElement}\n${el.yourAnswer}\n`)
       .join("\n");
@@ -234,6 +246,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
   // Save inline edit
   const saveInlineEdit = (index: number) => {
+    if (!activeStory) return;
     const updated = { ...activeStory };
     updated.elements = [...updated.elements];
     updated.elements[index] = {
@@ -246,6 +259,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
   // Export exact 3-column "Day 5 – Story Map" Excel workbook (.xlsx)
   const exportDay5Excel = () => {
+    if (!activeStory) return;
     const wb = XLSX.utils.book_new();
     const rows = activeStory.elements.map((el) => ({
       "#": el.num,
@@ -268,6 +282,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
   // Export CSV (.csv)
   const exportDay5Csv = () => {
+    if (!activeStory) return;
     const rows = activeStory.elements.map((el) => ({
       "#": el.num,
       "Story Element": el.storyElement,
@@ -292,6 +307,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
   // Export Combined 2-sheet Workbook (Audience Psychology + Day 5 Story Map)
   const exportCombinedWorkbook = () => {
+    if (!activeStory) return;
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Story Map
@@ -465,41 +481,43 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <span>Story Engine Audit</span>
             </Button>
 
-            {/* Export Dropdown Group */}
-            <div className="flex items-center rounded-lg border border-border/80 bg-card p-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exportDay5Excel}
-                className="h-7 text-xs gap-1.5 px-2.5 text-foreground hover:text-primary cursor-pointer"
-                title="Export Day 5 - Story Map 3-column Excel sheet"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Export Day 5</span> .xlsx
-              </Button>
-              <span className="text-border">|</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exportCombinedWorkbook}
-                className="h-7 text-xs gap-1.5 px-2 text-foreground hover:text-primary cursor-pointer"
-                title="Export combined workbook with both Audience Psychology and Day 5 Story Map sheets"
-              >
-                <Layers className="h-3.5 w-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">Combined</span> .xlsx
-              </Button>
-              <span className="text-border">|</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exportDay5Csv}
-                className="h-7 text-xs gap-1.5 px-2 text-foreground hover:text-primary cursor-pointer"
-                title="Export CSV of 12 Story Elements"
-              >
-                <Download className="h-3.5 w-3.5 text-blue-400" />
-                CSV
-              </Button>
-            </div>
+            {/* Export Dropdown Group - only when activeStory is present */}
+            {activeStory && (
+              <div className="flex items-center rounded-lg border border-border/80 bg-card p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exportDay5Excel}
+                  className="h-7 text-xs gap-1.5 px-2.5 text-foreground hover:text-primary cursor-pointer"
+                  title="Export Day 5 - Story Map 3-column Excel sheet"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Export Day 5</span> .xlsx
+                </Button>
+                <span className="text-border">|</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exportCombinedWorkbook}
+                  className="h-7 text-xs gap-1.5 px-2 text-foreground hover:text-primary cursor-pointer"
+                  title="Export combined workbook with both Audience Psychology and Day 5 Story Map sheets"
+                >
+                  <Layers className="h-3.5 w-3.5 text-indigo-400" />
+                  <span className="hidden sm:inline">Combined</span> .xlsx
+                </Button>
+                <span className="text-border">|</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exportDay5Csv}
+                  className="h-7 text-xs gap-1.5 px-2 text-foreground hover:text-primary cursor-pointer"
+                  title="Export CSV of 12 Story Elements"
+                >
+                  <Download className="h-3.5 w-3.5 text-blue-400" />
+                  CSV
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -517,136 +535,6 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             <span>{incomingNotice}</span>
           </div>
         )}
-      </div>
-
-      {/* Critique Lesson Alert: Story Structure vs Factual Certainty */}
-      <div className="mb-6 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-background to-amber-950/20 p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0 mt-0.5">
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-amber-300">
-                  Professional Documentary Lesson: Story Structure vs. Factual Certainty
-                </h4>
-                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] h-4">
-                  4-Stage Pipeline
-                </Badge>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab("research")}
-                className="h-6 text-[11px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
-              >
-                Inspect Claims Tracker ({activeStory.researchClaims?.length || 7}) →
-              </Button>
-            </div>
-            <p className="text-xs text-foreground/90 leading-relaxed">
-              <strong>Your story structure is stronger than your factual certainty.</strong> A professional documentary workflow separates:{" "}
-              <span className="font-semibold text-amber-300 font-mono">
-                STORY IDEA → HYPOTHESIS → EVIDENCE → VERIFIED NARRATION
-              </span>{" "}
-              rather than automatically turning an interesting explanation or experimental trial into an established fact.
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-muted-foreground">
-              <span className="font-medium text-foreground/80">7 Flagged Claims:</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12-lb dolerite maul</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Razor blade seam trope</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">45,000-ton figure</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12 cm³/hr rate</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Three-rod method</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Quartz-grain mechanics</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Limestone guide blocks</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Preset Switcher & Input Bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center mb-6 bg-card/60 border border-border/80 rounded-xl p-3.5 backdrop-blur shadow-sm">
-        {/* Story Selector */}
-        <div className="lg:col-span-5 flex items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-            Active Story:
-          </span>
-          <select
-            value={activeStory.id}
-            onChange={(e) => {
-              const selected = storyList.find((s) => s.id === e.target.value);
-              if (selected) setActiveStory(selected);
-            }}
-            className="w-full text-xs font-medium bg-background border border-border/80 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary truncate cursor-pointer"
-          >
-            {storyList.map((story) => (
-              <option key={story.id} value={story.id}>
-                {story.workingTitle}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* 1-Click Exemplar Shortcuts */}
-        <div className="lg:col-span-4 flex items-center gap-1.5 overflow-x-auto py-1">
-          <Button
-            variant={activeStory.id === DAY5_EXEMPLAR_EGYPTIAN.id ? "default" : "secondary"}
-            size="sm"
-            onClick={() => setActiveStory(DAY5_EXEMPLAR_EGYPTIAN)}
-            className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-            title="Load Official Day 5 Assignment: Ancient Egyptian Stonework"
-          >
-            <span>🏛️</span>
-            <span>Egyptian Stonework</span>
-          </Button>
-
-          <Button
-            variant={activeStory.id === DAY5_EXEMPLAR_SCANPYRAMIDS.id ? "default" : "secondary"}
-            size="sm"
-            onClick={() => setActiveStory(DAY5_EXEMPLAR_SCANPYRAMIDS)}
-            className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-            title="Load ScanPyramids Cosmic Rays Study"
-          >
-            <span>🌌</span>
-            <span>Cosmic Rays</span>
-          </Button>
-
-          <Button
-            variant={activeStory.id === DAY5_EXEMPLAR_UAP.id ? "default" : "secondary"}
-            size="sm"
-            onClick={() => setActiveStory(DAY5_EXEMPLAR_UAP)}
-            className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-            title="Load Chilean Pilot UFO Investigation Study"
-          >
-            <span>🛸</span>
-            <span>Chilean FLIR</span>
-          </Button>
-        </div>
-
-        {/* Controls: New Manual Story & Upload */}
-        <div className="lg:col-span-3 flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsManualFormOpen(!isManualFormOpen)}
-            className="h-8 text-xs gap-1.5 border-border/80 hover:bg-accent cursor-pointer"
-          >
-            <ListPlus className="h-3.5 w-3.5 text-primary" />
-            <span>New Story</span>
-          </Button>
-
-          <label className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border/80 bg-background text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer transition-colors">
-            <Upload className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">Import</span>
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
-        </div>
       </div>
 
       {/* Manual Input Drawer / Form */}
@@ -758,46 +646,341 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
         </Card>
       )}
 
-      {/* Story Summary Banner */}
-      <div className="mb-6 rounded-xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/30 via-background to-purple-950/20 p-4.5 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400">
-                Active Story Dossier
-              </span>
-              {activeStory.code && (
-                <Badge variant="outline" className="text-[10px] font-mono h-4 border-indigo-500/30 text-indigo-300">
-                  {activeStory.code} • {activeStory.pattern || "Formula"}
-                </Badge>
-              )}
-              {activeStory.clickMotivation && (
-                <Badge className="text-[10px] h-4 bg-indigo-500/15 text-indigo-300 border-0">
-                  Pull: {activeStory.clickMotivation}
-                </Badge>
-              )}
-            </div>
-            <h3 className="text-xl font-bold tracking-tight text-foreground">
-              {activeStory.workingTitle}
-            </h3>
-            <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl">
-              <strong className="text-foreground/90 font-medium">Core Question:</strong> {activeStory.coreQuestion}
-            </p>
+      {/* Empty State / Launchpad (Unpopulated Initial State) */}
+      {!activeStory && (
+        <div className="rounded-2xl border border-dashed border-border/90 bg-card/40 p-8 sm:p-12 text-center backdrop-blur shadow-sm mb-8 animate-in fade-in">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-5 shadow-inner">
+            <Compass className="h-8 w-8 animate-pulse" />
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyAllMarkdown}
-              className="h-8 text-xs gap-1.5 cursor-pointer"
-            >
-              {copiedAll ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              <span>{copiedAll ? "Copied All!" : "Copy Full Worksheet"}</span>
-            </Button>
+          <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-2">
+            Story Map & The 7-Beat Engine
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-8 leading-relaxed">
+            No story has been populated yet. Craft an unskippable documentary narrative using one of the methods below, or load an official Day 5 reference study to inspect the engine.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto text-left">
+            {/* Option 1: Upstream Pipeline */}
+            <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-5 flex flex-col justify-between hover:border-indigo-500/50 transition-all group">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+                    <Zap className="h-5 w-5" />
+                  </span>
+                  <Badge variant="outline" className="border-indigo-500/40 text-indigo-400 text-[10px]">
+                    Recommended
+                  </Badge>
+                </div>
+                <h4 className="text-sm font-semibold text-foreground group-hover:text-indigo-300 transition-colors">
+                  From Upstream Sections
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Generate ideas in the <strong>Title Generator</strong> or <strong>Audience Psychology</strong> sections and click <span className="font-mono text-indigo-300">"Map into Story Engine →"</span>.
+                </p>
+              </div>
+              <div className="pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const el = document.getElementById("psychology-click") || document.getElementById("title-generator");
+                    el?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="w-full text-xs h-8 border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 cursor-pointer"
+                >
+                  Go to Upstream Modules →
+                </Button>
+              </div>
+            </div>
+
+            {/* Option 2: Manual Story Architect */}
+            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between hover:border-primary/50 transition-all group">
+              <div className="space-y-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary w-fit">
+                  <ListPlus className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                  Architect New Story
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Input a working title, premise, and editorial angle to construct the 12 beats, 30s opening, and escalation ladder.
+                </p>
+              </div>
+              <div className="pt-4">
+                <Button
+                  size="sm"
+                  onClick={() => setIsManualFormOpen(true)}
+                  className="w-full text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Architect Story
+                </Button>
+              </div>
+            </div>
+
+            {/* Option 3: Import Spreadsheet */}
+            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between hover:border-emerald-500/50 transition-all group">
+              <div className="space-y-2.5">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 w-fit">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-semibold text-foreground group-hover:text-emerald-300 transition-colors">
+                  Import Spreadsheet
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Upload an existing Day 4 packaging or Day 5 story map workbook in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xlsx</code>, <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xls</code>, or <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.csv</code>.
+                </p>
+              </div>
+              <div className="pt-4">
+                <label className="flex items-center justify-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 cursor-pointer transition-colors w-full">
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Select File...</span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Option 4: On-Demand Exemplars */}
+            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between hover:border-amber-500/50 transition-all group">
+              <div className="space-y-2.5">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-semibold text-foreground group-hover:text-amber-300 transition-colors">
+                  Load Study Exemplar
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Inspect official reference studies from the Day 5 course to study professional documentary story structures.
+                </p>
+              </div>
+              <div className="pt-4 space-y-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadExemplar(DAY5_EXEMPLAR_EGYPTIAN)}
+                  className="w-full text-[11px] h-7 justify-start gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 cursor-pointer truncate"
+                >
+                  <span>🏛️</span>
+                  <span className="truncate">Egyptian Stonework</span>
+                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadExemplar(DAY5_EXEMPLAR_SCANPYRAMIDS)}
+                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
+                  >
+                    🌌 Cosmic Rays
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadExemplar(DAY5_EXEMPLAR_UAP)}
+                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
+                  >
+                    🛸 Chilean FLIR
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Populated Results View */}
+      {activeStory && (
+        <>
+          {/* Preset Switcher & Input Bar */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center mb-6 bg-card/60 border border-border/80 rounded-xl p-3.5 backdrop-blur shadow-sm">
+            {/* Story Selector */}
+            <div className="lg:col-span-5 flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                Active Story:
+              </span>
+              <select
+                value={activeStory.id}
+                onChange={(e) => {
+                  const selected = storyList.find((s) => s.id === e.target.value);
+                  if (selected) setActiveStory(selected);
+                }}
+                className="w-full text-xs font-medium bg-background border border-border/80 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary truncate cursor-pointer"
+              >
+                {storyList.length > 0 ? (
+                  storyList.map((story) => (
+                    <option key={story.id} value={story.id}>
+                      {story.workingTitle}
+                    </option>
+                  ))
+                ) : (
+                  <option value={activeStory.id}>{activeStory.workingTitle}</option>
+                )}
+              </select>
+            </div>
+
+            {/* 1-Click Exemplar Shortcuts */}
+            <div className="lg:col-span-4 flex items-center gap-1.5 overflow-x-auto py-1">
+              <Button
+                variant={activeStory.id === DAY5_EXEMPLAR_EGYPTIAN.id ? "default" : "secondary"}
+                size="sm"
+                onClick={() => loadExemplar(DAY5_EXEMPLAR_EGYPTIAN)}
+                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
+                title="Load Official Day 5 Assignment: Ancient Egyptian Stonework"
+              >
+                <span>🏛️</span>
+                <span>Egyptian Stonework</span>
+              </Button>
+
+              <Button
+                variant={activeStory.id === DAY5_EXEMPLAR_SCANPYRAMIDS.id ? "default" : "secondary"}
+                size="sm"
+                onClick={() => loadExemplar(DAY5_EXEMPLAR_SCANPYRAMIDS)}
+                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
+                title="Load ScanPyramids Cosmic Rays Study"
+              >
+                <span>🌌</span>
+                <span>Cosmic Rays</span>
+              </Button>
+
+              <Button
+                variant={activeStory.id === DAY5_EXEMPLAR_UAP.id ? "default" : "secondary"}
+                size="sm"
+                onClick={() => loadExemplar(DAY5_EXEMPLAR_UAP)}
+                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
+                title="Load Chilean Pilot UFO Investigation Study"
+              >
+                <span>🛸</span>
+                <span>Chilean FLIR</span>
+              </Button>
+            </div>
+
+            {/* Controls: New Manual Story, Upload, and Clear */}
+            <div className="lg:col-span-3 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsManualFormOpen(!isManualFormOpen)}
+                className="h-8 text-xs gap-1.5 border-border/80 hover:bg-accent cursor-pointer"
+              >
+                <ListPlus className="h-3.5 w-3.5 text-primary" />
+                <span>New Story</span>
+              </Button>
+
+              <label className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border/80 bg-background text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer transition-colors">
+                <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="hidden sm:inline">Import</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearStory}
+                className="h-8 text-xs gap-1 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                title="Clear story and reset workspace"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Clear</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Critique Lesson Alert: Story Structure vs Factual Certainty */}
+          <div className="mb-6 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-background to-amber-950/20 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0 mt-0.5">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-amber-300">
+                      Professional Documentary Lesson: Story Structure vs. Factual Certainty
+                    </h4>
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] h-4">
+                      4-Stage Pipeline
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab("research")}
+                    className="h-6 text-[11px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+                  >
+                    Inspect Claims Tracker ({activeStory.researchClaims?.length || 7}) →
+                  </Button>
+                </div>
+                <p className="text-xs text-foreground/90 leading-relaxed">
+                  <strong>Your story structure is stronger than your factual certainty.</strong> A professional documentary workflow separates:{" "}
+                  <span className="font-semibold text-amber-300 font-mono">
+                    STORY IDEA → HYPOTHESIS → EVIDENCE → VERIFIED NARRATION
+                  </span>{" "}
+                  rather than automatically turning an interesting explanation or experimental trial into an established fact.
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground/80">7 Flagged Claims:</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12-lb dolerite maul</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Razor blade seam trope</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">45,000-ton figure</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">12 cm³/hr rate</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Three-rod method</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Quartz-grain mechanics</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px]">Limestone guide blocks</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Story Summary Banner */}
+          <div className="mb-6 rounded-xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/30 via-background to-purple-950/20 p-4.5 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400">
+                    Active Story Dossier
+                  </span>
+                  {activeStory.code && (
+                    <Badge variant="outline" className="text-[10px] font-mono h-4 border-indigo-500/30 text-indigo-300">
+                      {activeStory.code} • {activeStory.pattern || "Formula"}
+                    </Badge>
+                  )}
+                  {activeStory.clickMotivation && (
+                    <Badge className="text-[10px] h-4 bg-indigo-500/15 text-indigo-300 border-0">
+                      Pull: {activeStory.clickMotivation}
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-foreground">
+                  {activeStory.workingTitle}
+                </h3>
+                <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl">
+                  <strong className="text-foreground/90 font-medium">Core Question:</strong> {activeStory.coreQuestion}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyAllMarkdown}
+                  className="h-8 text-xs gap-1.5 cursor-pointer"
+                >
+                  {copiedAll ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>{copiedAll ? "Copied All!" : "Copy Full Worksheet"}</span>
+                </Button>
+              </div>
+            </div>
+          </div>
 
       {/* Main Tabs Navigation */}
       <Tabs
@@ -1641,6 +1824,8 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
           </div>
         </TabsContent>
       </Tabs>
+        </>
+      )}
 
       {/* ========================================================
           MODAL 1: DAY 5 STUDY GUIDE
@@ -1721,7 +1906,9 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               The First 30 Seconds Laboratory
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Test and rehearse the exact 4-phase opening formula.
+              {activeStory
+                ? `Testing opening hook for "${activeStory.workingTitle}".`
+                : "Reviewing reference opening hook (Demonstration from Day 5 Egyptian Stonework study)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1730,27 +1917,32 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <strong>Critical Rule:</strong> Do not reveal the entire answer in the introduction! If your video is about ancient stonework, don't start with "They used copper saws and sand slurry." That destroys the investigation.
             </div>
 
-            <div className="space-y-3">
-              <div className="p-3 rounded border border-border/80 bg-card space-y-1">
-                <span className="font-mono text-amber-400 font-bold">0–5s VISUAL HOOK</span>
-                <p className="text-muted-foreground">{activeStory.first30Seconds.visualHook0to5s.visualShot}</p>
-              </div>
+            {(() => {
+              const first30s = activeStory?.first30Seconds || DAY5_EXEMPLAR_EGYPTIAN.first30Seconds;
+              return (
+                <div className="space-y-3">
+                  <div className="p-3 rounded border border-border/80 bg-card space-y-1">
+                    <span className="font-mono text-amber-400 font-bold">0–5s VISUAL HOOK</span>
+                    <p className="text-muted-foreground">{first30s.visualHook0to5s.visualShot}</p>
+                  </div>
 
-              <div className="p-3 rounded border border-border/80 bg-card space-y-1">
-                <span className="font-mono text-cyan-400 font-bold">5–12s STRANGE CLAIM</span>
-                <p className="text-foreground font-medium">"{activeStory.first30Seconds.strangeClaim5to12s.narration}"</p>
-              </div>
+                  <div className="p-3 rounded border border-border/80 bg-card space-y-1">
+                    <span className="font-mono text-cyan-400 font-bold">5–12s STRANGE CLAIM</span>
+                    <p className="text-foreground font-medium">"{first30s.strangeClaim5to12s.narration}"</p>
+                  </div>
 
-              <div className="p-3 rounded border border-border/80 bg-card space-y-1">
-                <span className="font-mono text-indigo-400 font-bold">12–20s THE QUESTION</span>
-                <p className="text-foreground font-medium">"{activeStory.first30Seconds.question12to20s.narration}"</p>
-              </div>
+                  <div className="p-3 rounded border border-border/80 bg-card space-y-1">
+                    <span className="font-mono text-indigo-400 font-bold">12–20s THE QUESTION</span>
+                    <p className="text-foreground font-medium">"{first30s.question12to20s.narration}"</p>
+                  </div>
 
-              <div className="p-3 rounded border border-border/80 bg-card space-y-1">
-                <span className="font-mono text-emerald-400 font-bold">20–30s THE PROMISE</span>
-                <p className="text-foreground font-medium">"{activeStory.first30Seconds.promise20to30s.narration}"</p>
-              </div>
-            </div>
+                  <div className="p-3 rounded border border-border/80 bg-card space-y-1">
+                    <span className="font-mono text-emerald-400 font-bold">20–30s THE PROMISE</span>
+                    <p className="text-foreground font-medium">"{first30s.promise20to30s.narration}"</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
