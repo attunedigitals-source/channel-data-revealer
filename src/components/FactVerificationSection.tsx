@@ -801,7 +801,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
                   className="w-full text-[11px] h-7 justify-start gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 cursor-pointer truncate"
                 >
                   <span>🏛️</span>
-                  <span className="truncate">Egyptian Stonework (11 Claims)</span>
+                  <span className="truncate">Egyptian Stonework (15 Claims — Day 6 Standard)</span>
                 </Button>
                 <div className="flex gap-1.5">
                   <Button
@@ -1193,6 +1193,24 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
               <p className="text-muted-foreground text-[11px]">
                 Aim for at least three independent sources. <em>Crucial caveat:</em> Three websites repeating the same blog post are not three independent confirmations. Trace claims back to original field excavation reports or peer-reviewed papers.
               </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/25 space-y-2">
+              <h5 className="font-bold text-xs text-indigo-400 flex items-center gap-1.5">
+                <span>🎯</span>
+                <span>Day 6 Assessment Standards: What We Must Be Careful About</span>
+              </h5>
+              <ul className="space-y-1.5 text-[11px] text-muted-foreground list-disc pl-4">
+                <li>
+                  <strong className="text-foreground">Experimental Feasibility ≠ Historical Proof:</strong> An experiment demonstrating that a mechanism works (e.g. copper carrying quartz slurry) is NOT proof that ancient craftsmen used that exact mechanism. Classify as <em>PARTIALLY VERIFIED / MEDIUM</em>, not <em>VERIFIED / HIGH</em>.
+                </li>
+                <li>
+                  <strong className="text-foreground">Specific Method vs. General Tools (The Three-Rod Rule):</strong> Surviving wooden rods and tomb scenes prove basic leveling practices existed, but do NOT prove the specific three-rod calibration triangulation method. Mark as <em>NEEDS RESEARCH</em> until specifically documented.
+                </li>
+                <li>
+                  <strong className="text-foreground">Auditable Source Citations:</strong> Never use generic bucket labels like <em>"Scholarly publications"</em>. Always cite: <code className="text-[10px] text-amber-300">Author — Title — Year — Publication/Institution</code> (e.g. <em className="text-foreground">Stocks, Denys A. — Experiments in Egyptian Archaeology — 2003 — Routledge</em>).
+                </li>
+              </ul>
             </div>
           </div>
         </DialogContent>
