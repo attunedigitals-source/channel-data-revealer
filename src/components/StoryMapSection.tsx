@@ -917,7 +917,36 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     onClick={() => setActiveTab("research")}
                     className="h-6 text-[11px] px-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
                   >
-                    Inspect Claims Tracker ({activeStory.researchClaims?.length || 7}) →
+                    Inspect Claims ({activeStory.researchClaims?.length || 7}) →
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      window.dispatchEvent(
+                        new CustomEvent("load-to-fact-verification", {
+                          detail: {
+                            storyTitle: activeStory.workingTitle,
+                            coreQuestion: activeStory.coreQuestion,
+                            claims: claims.map((c) => ({
+                              claim: c.claim,
+                              category: c.category,
+                              currentDraftText: c.currentDraftText,
+                              verifiedAlternativeText: c.verifiedAlternativeText,
+                              verificationAction: c.verificationAction,
+                              storyBeat: c.beatOrElement,
+                            })),
+                          },
+                        })
+                      );
+                      const target = document.getElementById("fact-verification");
+                      target?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="h-6 text-[11px] px-2.5 border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 cursor-pointer flex items-center gap-1"
+                  >
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>Fact Verification & Research →</span>
                   </Button>
                 </div>
                 <p className="text-xs text-foreground/90 leading-relaxed">
@@ -1731,25 +1760,56 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
-                    const text = claims
-                      .map(
-                        (c, i) =>
-                          `${i + 1}. [${c.category}] ${c.claim}\n   - Current Draft: "${c.currentDraftText}"\n   - Verified Alternative: "${c.verifiedAlternativeText}"\n   - Verification Action: ${c.verificationAction}\n`
-                      )
-                      .join("\n");
-                    navigator.clipboard.writeText(text);
-                    alert("Research Verification Checklist copied to clipboard!");
-                  }}
-                  className="h-7 text-[11px] gap-1.5 border-border/80 cursor-pointer"
-                >
-                  <Copy className="h-3 w-3" />
-                  <span>Copy Research Checklist</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      const text = claims
+                        .map(
+                          (c, i) =>
+                            `${i + 1}. [${c.category}] ${c.claim}\n   - Current Draft: "${c.currentDraftText}"\n   - Verified Alternative: "${c.verifiedAlternativeText}"\n   - Verification Action: ${c.verificationAction}\n`
+                        )
+                        .join("\n");
+                      navigator.clipboard.writeText(text);
+                      alert("Research Verification Checklist copied to clipboard!");
+                    }}
+                    className="h-7 text-[11px] gap-1.5 border-border/80 cursor-pointer"
+                  >
+                    <Copy className="h-3 w-3" />
+                    <span>Copy Checklist</span>
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      window.dispatchEvent(
+                        new CustomEvent("load-to-fact-verification", {
+                          detail: {
+                            storyTitle: activeStory.workingTitle,
+                            coreQuestion: activeStory.coreQuestion,
+                            claims: claims.map((c) => ({
+                              claim: c.claim,
+                              category: c.category,
+                              currentDraftText: c.currentDraftText,
+                              verifiedAlternativeText: c.verifiedAlternativeText,
+                              verificationAction: c.verificationAction,
+                              storyBeat: c.beatOrElement,
+                            })),
+                          },
+                        })
+                      );
+                      const target = document.getElementById("fact-verification");
+                      target?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="h-7 text-[11px] gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>Fact Verification Section →</span>
+                  </Button>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-border/80">

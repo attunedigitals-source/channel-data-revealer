@@ -25,6 +25,7 @@ import {
   X,
   Brain,
   Compass,
+  ShieldCheck,
 } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import {
@@ -36,6 +37,7 @@ import { CompetitorSection } from "@/components/CompetitorSection";
 import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
 import { AudiencePsychologySection } from "@/components/AudiencePsychologySection";
 import { StoryMapSection } from "@/components/StoryMapSection";
+import { FactVerificationSection } from "@/components/FactVerificationSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -221,6 +223,14 @@ function Index() {
                 <Compass className="h-3.5 w-3.5 text-indigo-400" />
                 Story Map
               </a>
+              <span className="text-border">•</span>
+              <a
+                href="#fact-verification"
+                className="px-2.5 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1.5"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                Fact Verification
+              </a>
             </nav>
 
             <Button
@@ -389,6 +399,11 @@ function Index() {
       />
 
       <StoryMapSection
+        aiApiKey={aiApiKey}
+        onOpenKeyModal={() => setKeyModalOpen(true)}
+      />
+
+      <FactVerificationSection
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
