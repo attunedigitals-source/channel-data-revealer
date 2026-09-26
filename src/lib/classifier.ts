@@ -355,10 +355,10 @@ export async function classifyChannelWithAi(
   // Option 1: Direct Google Gemini REST API (Fast, reliable, free tier)
   if (geminiKey) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {
@@ -621,10 +621,10 @@ Respond strictly with a JSON object:
   // Try Gemini if key exists
   if (geminiKey) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptText }] }],
           generationConfig: {

@@ -416,10 +416,10 @@ async function summarizeFirst30Seconds({
 
   if (geminiKey) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.3 },
@@ -1137,10 +1137,11 @@ export const validateAiKey = createServerFn({ method: "POST" })
       }
     }
 
-    if (key.startsWith("AIzaSy")) {
+    if (key.startsWith("AIza") || key.startsWith("AQ.")) {
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${encodeURIComponent(key)}`
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash",
+          { headers: { "x-goog-api-key": key } },
         );
         if (res.ok) {
           return { valid: true, provider: "gemini", message: "Connected to Google Gemini Vision successfully!" };
@@ -1161,7 +1162,7 @@ export const validateAiKey = createServerFn({ method: "POST" })
       }
     }
 
-    return { valid: false, message: "Key should start with 'AIzaSy...' (Gemini) or 'sk-...' (OpenAI)." };
+    return { valid: false, message: "Use a Gemini key starting with 'AQ.' or 'AIza', or an OpenAI key starting with 'sk-'." };
   });
 
 export const analyzeThumbnail = createServerFn({ method: "POST" })
@@ -1289,10 +1290,10 @@ export const analyzeThumbnail = createServerFn({ method: "POST" })
     if (geminiKey && base64Data) {
       for (const model of ["gemini-1.5-flash", "gemini-2.0-flash"]) {
         try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
           const res = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
             body: JSON.stringify({
               contents: [
                 {

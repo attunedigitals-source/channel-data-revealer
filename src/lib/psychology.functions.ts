@@ -676,10 +676,10 @@ Return a valid JSON array of objects conforming to this schema:
   if (geminiKey) {
     for (const model of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
       try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
           body: JSON.stringify({
             contents: [
               {
@@ -820,7 +820,7 @@ export const analyzePsychologyServer = createServerFn({ method: "POST" })
 
     const userAiKey = aiApiKey?.trim();
     const isOpenAi = userAiKey?.startsWith("sk-");
-    const isGemini = userAiKey?.startsWith("AIza");
+    const isGemini = userAiKey?.startsWith("AIza") || userAiKey?.startsWith("AQ.");
 
     const geminiKey =
       (isGemini ? userAiKey : undefined) ||

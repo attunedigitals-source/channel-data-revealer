@@ -943,7 +943,7 @@ export const generateStoryMapServer = createServerFn({ method: "POST" })
     }
 
     try {
-      const isGemini = effectiveAiKey.startsWith("AIza") || !!process.env.GEMINI_API_KEY;
+      const isGemini = effectiveAiKey.startsWith("AIza") || effectiveAiKey.startsWith("AQ.") || !!process.env.GEMINI_API_KEY;
       const prompt = `You are a master documentary director and story architect specializing in premium YouTube documentaries (in the style of Vox, Veritasium, Lemmino, Johnny Harris, and BBC Horizon).
 
 Follow these strict DAY 5 STORYTELLING RULES:
@@ -1035,10 +1035,10 @@ Return ONLY a valid JSON object matching this schema (no markdown formatting, no
 
       let rawContent = "";
       if (isGemini) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveAiKey}`;
+        const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": effectiveAiKey },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
