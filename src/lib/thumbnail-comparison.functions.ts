@@ -90,7 +90,7 @@ export const DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS: ThumbnailComparisonDossier = {
   ourStrategy: {
     entityRole: "Our Target Video",
     title: "How Did Ancient Egyptians Achieve Such Precise Stonework?",
-    thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+    thumbnailUrl: "/thumbnails/preset-seam.jpg",
     thumbnailSubject: "Cinematic macro shot: A weathered Old Kingdom tubular copper drill core showing authentic spiral striations resting upon a massive pink granite megalith with a laser-straight sub-millimeter joint, bathed in low-angle golden-hour rim lighting with pyramids in the misty background.",
     thumbnailQuestion: "How could primitive Bronze Age tools produce tolerances so tight that a razor blade cannot enter the joint?",
     titlePromise: "Promises a rigorous, authoritative investigation into the real mechanical methods and engineering tolerances of ancient stonemasons.",
@@ -103,7 +103,7 @@ export const DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS: ThumbnailComparisonDossier = {
   ourAlternativeStrategy: {
     entityRole: "Our Target Video",
     title: "How Did Ancient Egyptians Achieve Such Precise Stonework?",
-    thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+    thumbnailUrl: "/thumbnails/preset-straightedge.jpg",
     thumbnailSubject: "Macro optical contrast: An engineer's steel precision straightedge held against a polished granite block showing zero light bleed beneath it, juxtaposed with loose quartz sand abrasive grains under extreme high-magnification.",
     thumbnailQuestion: "Can basic quartz desert sand and soft copper really grind crystalline quartz-bearing granite to optical flatness?",
     titlePromise: "Promises a forensic deconstruction of the physical mechanics, material removal physics, and abrasive grain action behind ancient Egyptian stonework.",
@@ -114,7 +114,7 @@ export const DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS: ThumbnailComparisonDossier = {
     visualFlawsOrGaps: ["Slightly more technical; best for engineering/science leaning viewers"],
   },
   generatedThumbnail: {
-    imageUrl: "/thumbnails/our-target-egypt.jpg",
+    imageUrl: "/thumbnails/preset-seam.jpg",
     promptMidjourney: "Cinematic YouTube documentary thumbnail, 8k resolution, photorealistic. Close-up macro shot of an ancient Egyptian pink granite block with an impossibly smooth cut seam, a weathered bronze age copper tube drill core with concentric spiral striations resting on top, dramatic side rim lighting at sunset, golden hour warm amber highlights contrasting with deep dramatic shadows, mysterious atmosphere, rule of thirds, high contrast, documentary style like National Geographic --ar 16:9 --style raw --v 6.0",
     promptDalleFlux: "Photorealistic macro photograph for a YouTube documentary thumbnail. A massive weathered pink granite block with a razor-thin 0.5mm seam running down the center. Resting on the stone is an authentic cylindrical copper drill core with prominent spiral striations and verdigris patina. Low-angle golden hour sunset illumination, deep shadows, misty Giza pyramids softly blurred in the background. Ultra-detailed stone grain, 8k, cinematic lighting.",
     focalSubject: "Cylindrical copper tubular drill core with green verdigris patina and concentric spiral striations, resting right beside a razor-tight granite joint.",
@@ -473,6 +473,7 @@ export interface ThumbnailVariationPreset {
   badge: string;
   overlayText: string;
   colorFilter: "warm" | "teal" | "vivid" | "noir";
+  imageUrl: string;
   focalSubject: string;
   thumbnailQuestion: string;
   titlePromise: string;
@@ -489,6 +490,7 @@ export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
     badge: "DOCUMENTARY",
     overlayText: "0.5mm SEAM",
     colorFilter: "warm",
+    imageUrl: "/thumbnails/preset-seam.jpg",
     focalSubject: "Extreme macro close-up of a laser-straight granite casing block joint so tight a 0.5mm razor cannot enter.",
     thumbnailQuestion: "How could primitive Bronze Age tools produce joint tolerances tighter than a razor blade?",
     titlePromise: "Authoritative investigation separating verified engineering mechanics from persistent ancient construction myths.",
@@ -503,6 +505,7 @@ export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
     badge: "FORENSIC",
     overlayText: "SPIRAL CORES",
     colorFilter: "teal",
+    imageUrl: "/thumbnails/preset-core.jpg",
     focalSubject: "Cylindrical granite core UC16036 showing distinct spiral abrasive striations alongside an ancient copper tubular drill bit.",
     thumbnailQuestion: "Did ancient drillers use high-speed machine rotation or abrasive slurry friction to cut these grooves?",
     titlePromise: "Forensic laboratory investigation into the physical drill cores documented by Flinders Petrie.",
@@ -517,6 +520,7 @@ export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
     badge: "TOLERANCE",
     overlayText: "ZERO LIGHT",
     colorFilter: "vivid",
+    imageUrl: "/thumbnails/preset-straightedge.jpg",
     focalSubject: "Precision steel engineer's straightedge held across an ancient diorite casing stone showing zero light bleed beneath the edge.",
     thumbnailQuestion: "How could ancient stone carvers calibrate surfaces to optical flatness without modern surface plates?",
     titlePromise: "Examines the metrology, three-rod methods, and sighting procedures used to achieve flat surfaces.",
@@ -531,6 +535,7 @@ export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
     badge: "FIELD REPORT",
     overlayText: "UNFINISHED",
     colorFilter: "warm",
+    imageUrl: "/thumbnails/preset-quarry.jpg",
     focalSubject: "Aswan unfinished obelisk quarry trench with spherical dolerite pounding balls resting in concave scoop marks.",
     thumbnailQuestion: "Could millions of blows from 12-pound hand-held dolerite rocks really extract a 1,000-ton monolith?",
     titlePromise: "Reveals the primary extraction methods, thermal shock, and pounding pounder evidence from royal quarries.",
@@ -545,6 +550,7 @@ export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
     badge: "SOLVED?",
     overlayText: "SAND SLURRY",
     colorFilter: "noir",
+    imageUrl: "/thumbnails/preset-slurry.jpg",
     focalSubject: "Macro cross-section of a copper saw blade cutting through hard rose granite with crushed quartz sand slurry foaming at the kerf.",
     thumbnailQuestion: "Does quartz sand slurry possess enough hardness to spall crystalline igneous granite?",
     titlePromise: "Deconstructs the tribological physics and experimental archaeology of copper-abrasive cutting.",
@@ -564,6 +570,7 @@ const RegenerateThumbnailInput = z.object({
   conceptNotes: z.string().trim().optional(),
   feedback: z.string().trim().optional(),
   styleAngle: z.string().trim().optional(),
+  currentPresetId: z.string().trim().optional(),
   aiApiKey: z.string().trim().optional(),
 });
 
@@ -573,29 +580,47 @@ export const regenerateThumbnailConceptServer = createServerFn({ method: "POST" 
     const envKey = (process.env.GEMINI_API_KEY || process.env.AI_API_KEY || "").trim();
     const effectiveAiKey = (data.aiApiKey || envKey).trim();
 
-    // If no API key or fallback, find best preset or dynamic variation
+    const lowerOur = data.ourTitle.toLowerCase();
+    const isEgyptian =
+      lowerOur.includes("egypt") ||
+      lowerOur.includes("pyramid") ||
+      lowerOur.includes("stonework") ||
+      lowerOur.includes("granite") ||
+      lowerOur.includes("obelisk");
+
+    // Match or cycle to next preset
+    const lowerFeedback = (data.feedback || "").toLowerCase();
+    const lowerStyle = (data.styleAngle || "").toLowerCase();
+
+    let matched = CURATED_THUMBNAIL_PRESETS[1]; // default to Core
+    if (lowerFeedback.includes("flat") || lowerFeedback.includes("light") || lowerStyle.includes("straightedge") || lowerStyle.includes("optical")) {
+      matched = CURATED_THUMBNAIL_PRESETS[2]; // straightedge
+    } else if (lowerFeedback.includes("quarry") || lowerFeedback.includes("pound") || lowerFeedback.includes("monolith") || lowerStyle.includes("megalith")) {
+      matched = CURATED_THUMBNAIL_PRESETS[3]; // quarry
+    } else if (lowerFeedback.includes("sand") || lowerFeedback.includes("slurry") || lowerFeedback.includes("saw") || lowerStyle.includes("abrasive") || lowerStyle.includes("slurry")) {
+      matched = CURATED_THUMBNAIL_PRESETS[4]; // slurry
+    } else if (lowerFeedback.includes("seam") || lowerFeedback.includes("joint") || lowerStyle.includes("precision") || lowerStyle.includes("seam")) {
+      matched = CURATED_THUMBNAIL_PRESETS[0]; // seam
+    } else if (lowerFeedback.includes("core") || lowerFeedback.includes("spiral") || lowerFeedback.includes("groove") || lowerStyle.includes("forensic") || lowerStyle.includes("core")) {
+      matched = CURATED_THUMBNAIL_PRESETS[1]; // core
+    } else if (data.styleAngle && CURATED_THUMBNAIL_PRESETS.some((p) => p.id === data.styleAngle)) {
+      matched = CURATED_THUMBNAIL_PRESETS.find((p) => p.id === data.styleAngle)!;
+    } else {
+      // Direct quick regeneration without feedback: advance sequentially through the rotation
+      const currIdx = CURATED_THUMBNAIL_PRESETS.findIndex((p) => p.id === data.currentPresetId);
+      const nextIdx = currIdx >= 0 ? (currIdx + 1) % CURATED_THUMBNAIL_PRESETS.length : 1;
+      matched = CURATED_THUMBNAIL_PRESETS[nextIdx];
+    }
+
+    const targetImageUrl = isEgyptian
+      ? matched.imageUrl
+      : `https://image.pollinations.ai/prompt/${encodeURIComponent(data.ourTitle.slice(0, 100) + " documentary thumbnail 8k cinematic")};?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random() * 899999 + 100000)}`;
+
+    // If no API key or fallback, return matched preset immediately
     if (!effectiveAiKey) {
-      const lowerFeedback = (data.feedback || "").toLowerCase();
-      const lowerStyle = (data.styleAngle || "").toLowerCase();
-
-      let matched = CURATED_THUMBNAIL_PRESETS[1]; // default to Core
-      if (lowerFeedback.includes("flat") || lowerStyle.includes("straightedge") || lowerStyle.includes("optical")) {
-        matched = CURATED_THUMBNAIL_PRESETS[2];
-      } else if (lowerFeedback.includes("quarry") || lowerFeedback.includes("pound") || lowerStyle.includes("megalith")) {
-        matched = CURATED_THUMBNAIL_PRESETS[3];
-      } else if (lowerFeedback.includes("sand") || lowerFeedback.includes("slurry") || lowerStyle.includes("abrasive")) {
-        matched = CURATED_THUMBNAIL_PRESETS[4];
-      } else if (lowerFeedback.includes("seam") || lowerFeedback.includes("joint") || lowerStyle.includes("precision")) {
-        matched = CURATED_THUMBNAIL_PRESETS[0];
-      } else {
-        // Pick random preset different from first
-        const randIdx = Math.floor(Math.random() * CURATED_THUMBNAIL_PRESETS.length);
-        matched = CURATED_THUMBNAIL_PRESETS[randIdx];
-      }
-
       return {
         concept: {
-          imageUrl: "/thumbnails/our-target-egypt.jpg",
+          imageUrl: targetImageUrl,
           promptMidjourney: matched.promptMidjourney,
           promptDalleFlux: matched.promptDalleFlux,
           focalSubject: matched.focalSubject,
@@ -608,14 +633,16 @@ export const regenerateThumbnailConceptServer = createServerFn({ method: "POST" 
         ourStrategy: {
           entityRole: "Our Target Video" as const,
           title: data.ourTitle,
-          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+          thumbnailUrl: targetImageUrl,
           thumbnailSubject: matched.focalSubject,
           thumbnailQuestion: matched.thumbnailQuestion,
           titlePromise: matched.titlePromise,
           thumbnailPromise: matched.thumbnailPromise,
           howTheyWorkTogether: matched.howTheyWorkTogether,
         },
-        feedbackApplied: data.feedback || "Generated fresh high-contrast alternative angle",
+        selectedPresetId: matched.id,
+        colorFilter: matched.colorFilter,
+        feedbackApplied: data.feedback ? `Applied feedback: "${data.feedback}"` : `Regenerated angle: "${matched.name}"`,
       };
     }
 
@@ -690,56 +717,63 @@ Return a clean, valid JSON object matching this schema:
 
       const parsed = JSON.parse(rawContent);
 
+      const aiImageUrl = isEgyptian
+        ? matched.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent((parsed.thumbnailSubject || data.ourTitle).slice(0, 120) + " documentary thumbnail 8k cinematic")};?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random() * 899999 + 100000)}`;
+
       return {
         concept: {
-          imageUrl: "/thumbnails/our-target-egypt.jpg",
+          imageUrl: aiImageUrl,
           promptMidjourney: parsed.promptMidjourney || "",
           promptDalleFlux: parsed.promptDalleFlux || "",
           focalSubject: parsed.thumbnailSubject || "",
           compositionAndFraming: "Rule of thirds, dramatic directional raking light.",
-          colorPaletteAndLighting: `${parsed.colorFilter || "warm"} tones with high micro-contrast.`,
-          recommendedOverlayText: parsed.recommendedOverlayText || "SOLVED",
-          recommendedBadge: parsed.recommendedBadge || "DOCUMENTARY",
+          colorPaletteAndLighting: `${parsed.colorFilter || matched.colorFilter} tones with high micro-contrast.`,
+          recommendedOverlayText: parsed.recommendedOverlayText || matched.overlayText,
+          recommendedBadge: parsed.recommendedBadge || matched.badge,
           contrastStrategy: "High luminance contrast designed to command the browse feed.",
         },
         ourStrategy: {
           entityRole: "Our Target Video" as const,
           title: data.ourTitle,
-          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+          thumbnailUrl: aiImageUrl,
           thumbnailSubject: parsed.thumbnailSubject || "",
           thumbnailQuestion: parsed.thumbnailQuestion || "",
           titlePromise: parsed.titlePromise || "",
           thumbnailPromise: parsed.thumbnailPromise || "",
           howTheyWorkTogether: parsed.howTheyWorkTogether || "",
         },
-        feedbackApplied: parsed.feedbackApplied || data.feedback || "Generated fresh alternative",
+        selectedPresetId: matched.id,
+        colorFilter: (parsed.colorFilter as any) || matched.colorFilter,
+        feedbackApplied: parsed.feedbackApplied || data.feedback || `Regenerated angle: "${matched.name}"`,
       };
     } catch (err) {
       console.warn("Regeneration with AI failed, using fallback preset:", err);
-      const fallbackPreset = CURATED_THUMBNAIL_PRESETS[Math.floor(Math.random() * CURATED_THUMBNAIL_PRESETS.length)];
       return {
         concept: {
-          imageUrl: "/thumbnails/our-target-egypt.jpg",
-          promptMidjourney: fallbackPreset.promptMidjourney,
-          promptDalleFlux: fallbackPreset.promptDalleFlux,
-          focalSubject: fallbackPreset.focalSubject,
+          imageUrl: targetImageUrl,
+          promptMidjourney: matched.promptMidjourney,
+          promptDalleFlux: matched.promptDalleFlux,
+          focalSubject: matched.focalSubject,
           compositionAndFraming: "Rule of thirds composition.",
-          colorPaletteAndLighting: `${fallbackPreset.colorFilter} tones.`,
-          recommendedOverlayText: fallbackPreset.overlayText,
-          recommendedBadge: fallbackPreset.badge,
+          colorPaletteAndLighting: `${matched.colorFilter} tones.`,
+          recommendedOverlayText: matched.overlayText,
+          recommendedBadge: matched.badge,
           contrastStrategy: "High micro-contrast.",
         },
         ourStrategy: {
           entityRole: "Our Target Video" as const,
           title: data.ourTitle,
-          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
-          thumbnailSubject: fallbackPreset.focalSubject,
-          thumbnailQuestion: fallbackPreset.thumbnailQuestion,
-          titlePromise: fallbackPreset.titlePromise,
-          thumbnailPromise: fallbackPreset.thumbnailPromise,
-          howTheyWorkTogether: fallbackPreset.howTheyWorkTogether,
+          thumbnailUrl: targetImageUrl,
+          thumbnailSubject: matched.focalSubject,
+          thumbnailQuestion: matched.thumbnailQuestion,
+          titlePromise: matched.titlePromise,
+          thumbnailPromise: matched.thumbnailPromise,
+          howTheyWorkTogether: matched.howTheyWorkTogether,
         },
-        feedbackApplied: data.feedback || "Applied alternative visual preset",
+        selectedPresetId: matched.id,
+        colorFilter: matched.colorFilter,
+        feedbackApplied: data.feedback ? `Applied feedback: "${data.feedback}"` : `Regenerated to angle: "${matched.name}"`,
       };
     }
   });

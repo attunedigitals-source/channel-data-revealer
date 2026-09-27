@@ -255,6 +255,7 @@ export function ThumbnailAnalysisCreationSection({
   // Switch to a curated thumbnail variation preset
   const handleSelectPreset = (preset: ThumbnailVariationPreset) => {
     setSelectedPresetId(preset.id);
+    setCustomImageUrl(null); // Clear custom upload override so preset image displays
     setOverlayText(preset.overlayText);
     setOverlayBadge(preset.badge);
     setColorFilter(preset.colorFilter);
@@ -264,6 +265,7 @@ export function ThumbnailAnalysisCreationSection({
         ...dossier,
         ourStrategy: {
           ...dossier.ourStrategy,
+          thumbnailUrl: preset.imageUrl,
           thumbnailSubject: preset.focalSubject,
           thumbnailQuestion: preset.thumbnailQuestion,
           titlePromise: preset.titlePromise,
@@ -272,6 +274,7 @@ export function ThumbnailAnalysisCreationSection({
         },
         generatedThumbnail: {
           ...dossier.generatedThumbnail,
+          imageUrl: preset.imageUrl,
           focalSubject: preset.focalSubject,
           promptMidjourney: preset.promptMidjourney,
           promptDalleFlux: preset.promptDalleFlux,
@@ -285,22 +288,26 @@ export function ThumbnailAnalysisCreationSection({
     setTimeout(() => setIncomingNotice(null), 3000);
   };
 
-  // Re-generate thumbnail concept with custom user critique / feedback
-  const handleRegenerateWithFeedback = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Direct 1-Click quick thumbnail regeneration (cycles to next angle or generates fresh concept)
+  const handleQuickRegenerateThumbnail = async () => {
     if (!ourTitle.trim()) {
       alert("Please provide a video title first.");
       return;
     }
 
     setIsRegenerating(true);
+    setCustomImageUrl(null); // Clear custom upload so new generation displays immediately
+
+    const currentIndex = CURATED_THUMBNAIL_PRESETS.findIndex((p) => p.id === selectedPresetId);
+    const nextIndex = (currentIndex + 1) % CURATED_THUMBNAIL_PRESETS.length;
+    const nextPreset = CURATED_THUMBNAIL_PRESETS[nextIndex];
+
     try {
       const res = await runRegenerate({
         data: {
           ourTitle: ourTitle.trim(),
           conceptNotes: conceptNotes.trim() || undefined,
-          feedback: regenerationFeedback.trim() || undefined,
-          styleAngle: regenerationStyle || undefined,
+          currentPresetId: selectedPresetId,
           aiApiKey: aiApiKey || undefined,
         },
       });
@@ -313,8 +320,64 @@ export function ThumbnailAnalysisCreationSection({
         });
       }
 
+      setSelectedPresetId(res.selectedPresetId || nextPreset.id);
+      setOverlayText(res.concept.recommendedOverlayText || nextPreset.overlayText);
+      setOverlayBadge(res.concept.recommendedBadge || nextPreset.badge);
+      if (res.colorFilter) {
+        setColorFilter(res.colorFilter as any);
+      } else {
+        setColorFilter(nextPreset.colorFilter);
+      }
+
+      setIncomingNotice(`Thumbnail regenerated: ${res.feedbackApplied || nextPreset.name}`);
+      setTimeout(() => setIncomingNotice(null), 4000);
+    } catch (err) {
+      console.warn("Direct regeneration fallback to next preset:", err);
+      handleSelectPreset(nextPreset);
+      setIncomingNotice(`Regenerated to angle: "${nextPreset.name}"`);
+      setTimeout(() => setIncomingNotice(null), 4000);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  // Re-generate thumbnail concept with custom user critique / feedback
+  const handleRegenerateWithFeedback = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!ourTitle.trim()) {
+      alert("Please provide a video title first.");
+      return;
+    }
+
+    setIsRegenerating(true);
+    setCustomImageUrl(null); // Clear custom upload so new generation displays immediately
+
+    try {
+      const res = await runRegenerate({
+        data: {
+          ourTitle: ourTitle.trim(),
+          conceptNotes: conceptNotes.trim() || undefined,
+          feedback: regenerationFeedback.trim() || undefined,
+          styleAngle: regenerationStyle || undefined,
+          currentPresetId: selectedPresetId,
+          aiApiKey: aiApiKey || undefined,
+        },
+      });
+
+      if (dossier) {
+        setDossier({
+          ...dossier,
+          ourStrategy: res.ourStrategy,
+          generatedThumbnail: res.concept,
+        });
+      }
+
+      setSelectedPresetId(res.selectedPresetId || selectedPresetId);
       setOverlayText(res.concept.recommendedOverlayText || "SOLVED");
       setOverlayBadge(res.concept.recommendedBadge || "DOCUMENTARY");
+      if (res.colorFilter) {
+        setColorFilter(res.colorFilter as any);
+      }
       setIsRegenerateModalOpen(false);
       setRegenerationFeedback("");
       setIncomingNotice(`Thumbnail re-generated: ${res.feedbackApplied}`);
@@ -1125,24 +1188,39 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* 1. Direct 1-Click Instant Regenerate Button */}
+                <Button
+                  size="sm"
+                  onClick={handleQuickRegenerateThumbnail}
+                  disabled={isRegenerating}
+                  className="h-8 gap-1.5 bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs cursor-pointer shadow-md"
+                  title="Directly regenerate thumbnail with a fresh visual angle and concept"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
+                  <span>{isRegenerating ? "Regenerating..." : "Regenerate Thumbnail"}</span>
+                </Button>
+
+                {/* 2. Steer with Feedback Button */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsRegenerateModalOpen(true)}
                   className="h-8 gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold cursor-pointer shadow-sm"
-                  title="Regenerate thumbnail with custom feedback or alternative visual angle"
+                  title="Open feedback modal to steer style, lighting, or specific critique"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
-                  <span>Regenerate Thumbnail</span>
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Steer with Feedback</span>
                 </Button>
 
+                {/* 3. Download Thumbnail Button */}
                 <Button
+                  variant="outline"
                   size="sm"
                   onClick={handleDownloadThumbnail}
-                  className="h-8 gap-1.5 bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs cursor-pointer shadow-md"
+                  className="h-8 gap-1.5 border-border hover:bg-muted text-foreground text-xs font-semibold cursor-pointer shadow-sm"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Download Thumbnail (1280x720 PNG)</span>
+                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Download (1280x720 PNG)</span>
                 </Button>
               </div>
             </div>
@@ -1172,16 +1250,12 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextIdx =
-                      (CURATED_THUMBNAIL_PRESETS.findIndex((p) => p.id === selectedPresetId) + 1) %
-                      CURATED_THUMBNAIL_PRESETS.length;
-                    handleSelectPreset(CURATED_THUMBNAIL_PRESETS[nextIdx]);
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer py-1 px-2 rounded hover:bg-amber-500/10"
+                  onClick={handleQuickRegenerateThumbnail}
+                  disabled={isRegenerating}
+                  className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer py-1 px-2 rounded hover:bg-amber-500/10 disabled:opacity-50"
                   title="Cycle to next visual variation"
                 >
-                  <RefreshCw className="h-3 w-3" />
+                  <RefreshCw className={`h-3 w-3 ${isRegenerating ? "animate-spin" : ""}`} />
                   <span>Next Angle</span>
                 </button>
               </div>
@@ -1767,7 +1841,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 ) : (
                   <>
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>Generate New Variation</span>
+                    <span>Regenerate with Feedback</span>
                   </>
                 )}
               </Button>
