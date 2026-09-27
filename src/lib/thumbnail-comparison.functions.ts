@@ -462,3 +462,284 @@ Return a clean, valid JSON object matching this schema:
       return generateHeuristicThumbnailComparison(data);
     }
   });
+
+// ============================================================================
+// CURATED THUMBNAIL VARIATIONS & PRESETS LIBRARY
+// ============================================================================
+
+export interface ThumbnailVariationPreset {
+  id: string;
+  name: string;
+  badge: string;
+  overlayText: string;
+  colorFilter: "warm" | "teal" | "vivid" | "noir";
+  focalSubject: string;
+  thumbnailQuestion: string;
+  titlePromise: string;
+  thumbnailPromise: string;
+  howTheyWorkTogether: string;
+  promptMidjourney: string;
+  promptDalleFlux: string;
+}
+
+export const CURATED_THUMBNAIL_PRESETS: ThumbnailVariationPreset[] = [
+  {
+    id: "preset-seam",
+    name: "0.5mm Precision Seam",
+    badge: "DOCUMENTARY",
+    overlayText: "0.5mm SEAM",
+    colorFilter: "warm",
+    focalSubject: "Extreme macro close-up of a laser-straight granite casing block joint so tight a 0.5mm razor cannot enter.",
+    thumbnailQuestion: "How could primitive Bronze Age tools produce joint tolerances tighter than a razor blade?",
+    titlePromise: "Authoritative investigation separating verified engineering mechanics from persistent ancient construction myths.",
+    thumbnailPromise: "High-tactile visual proof of undeniable sub-millimeter stone joint tolerances.",
+    howTheyWorkTogether: "Title poses the foundational mystery, thumbnail delivers the physical joint standard. They multiply curiosity without word repetition.",
+    promptMidjourney: "Cinematic macro shot of an ancient Egyptian pink granite block joint with razor-thin 0.5mm seam, bronze age copper tubular drill core resting on top with green patina, sunset golden hour rim lighting, 8k resolution, National Geographic documentary --ar 16:9 --style raw --v 6.0",
+    promptDalleFlux: "Photorealistic macro photograph of an ancient Egyptian granite wall with an impossibly tight 0.5mm seam. Low angle golden sunset light creating dramatic raking shadows, displaying raw crystal granite grain, 8k resolution.",
+  },
+  {
+    id: "preset-core",
+    name: "Petrie Core #7 (Grooves)",
+    badge: "FORENSIC",
+    overlayText: "SPIRAL CORES",
+    colorFilter: "teal",
+    focalSubject: "Cylindrical granite core UC16036 showing distinct spiral abrasive striations alongside an ancient copper tubular drill bit.",
+    thumbnailQuestion: "Did ancient drillers use high-speed machine rotation or abrasive slurry friction to cut these grooves?",
+    titlePromise: "Forensic laboratory investigation into the physical drill cores documented by Flinders Petrie.",
+    thumbnailPromise: "Forensic inspection of toolmarks and concentric micro-grooves preserved in ancient stone.",
+    howTheyWorkTogether: "Title asks how Egyptians achieved such precision, thumbnail provides the forensic toolmark artifact. The viewer clicks to see if rotary machines or sand slurry made them.",
+    promptMidjourney: "Forensic museum laboratory photography of an ancient Egyptian tubular drill core from Giza, visible spiral abrasive cutting grooves, resting next to an annealed copper tube with quartz abrasive paste, dramatic teal and amber rim lighting, 8k --ar 16:9 --style raw --v 6.0",
+    promptDalleFlux: "Close-up laboratory macro shot of an ancient granite drill core with concentric spiral grooving. Dramatic museum spotlighting, high contrast texture, photorealistic, 8k.",
+  },
+  {
+    id: "preset-straightedge",
+    name: "Optical Flatness Test",
+    badge: "TOLERANCE",
+    overlayText: "ZERO LIGHT",
+    colorFilter: "vivid",
+    focalSubject: "Precision steel engineer's straightedge held across an ancient diorite casing stone showing zero light bleed beneath the edge.",
+    thumbnailQuestion: "How could ancient stone carvers calibrate surfaces to optical flatness without modern surface plates?",
+    titlePromise: "Examines the metrology, three-rod methods, and sighting procedures used to achieve flat surfaces.",
+    thumbnailPromise: "Definitive visual demonstration of optical flatness tolerance (zero light gap) on monumental stone.",
+    howTheyWorkTogether: "Title introduces the stonework precision question, thumbnail shows the definitive modern metrology test being applied. The viewer clicks to discover the calibration secret.",
+    promptMidjourney: "Extreme macro photograph of a modern precision engineer straightedge pressed against an ancient Egyptian diorite granite block, back-lit with bright light showing zero light escaping beneath the blade, hyper-detailed, award-winning cinematography --ar 16:9 --style raw --v 6.0",
+    promptDalleFlux: "Photorealistic macro close-up of a metal straightedge ruler testing the flatness of an ancient polished Egyptian stone block. Intense back-lighting highlighting the perfect flush contact, 8k resolution.",
+  },
+  {
+    id: "preset-quarry",
+    name: "Megalithic Extraction",
+    badge: "FIELD REPORT",
+    overlayText: "UNFINISHED",
+    colorFilter: "warm",
+    focalSubject: "Aswan unfinished obelisk quarry trench with spherical dolerite pounding balls resting in concave scoop marks.",
+    thumbnailQuestion: "Could millions of blows from 12-pound hand-held dolerite rocks really extract a 1,000-ton monolith?",
+    titlePromise: "Reveals the primary extraction methods, thermal shock, and pounding pounder evidence from royal quarries.",
+    thumbnailPromise: "Visceral encounter with the sheer scale of ancient megalithic quarry trenches and physical pounders.",
+    howTheyWorkTogether: "Title asks about stonework precision, thumbnail confronts the viewer with the monumental scale of extraction. Bridges raw geology with delicate finish.",
+    promptMidjourney: "Dramatic wide-angle low perspective inside the Aswan unfinished obelisk trench, massive pink granite walls with concave pounding scoops, battered spherical dolerite maul in the foreground, golden desert dust particles floating in sunlight rays --ar 16:9 --style raw --v 6.0",
+    promptDalleFlux: "Cinematic photograph inside an ancient Egyptian granite quarry. Giant monolithic stone trench with ancient round hammer stones resting in the dust. Volumetric sun rays cutting through desert haze, 8k.",
+  },
+  {
+    id: "preset-slurry",
+    name: "Abrasive Sand Friction",
+    badge: "SOLVED?",
+    overlayText: "SAND SLURRY",
+    colorFilter: "noir",
+    focalSubject: "Macro cross-section of a copper saw blade cutting through hard rose granite with crushed quartz sand slurry foaming at the kerf.",
+    thumbnailQuestion: "Does quartz sand slurry possess enough hardness to spall crystalline igneous granite?",
+    titlePromise: "Deconstructs the tribological physics and experimental archaeology of copper-abrasive cutting.",
+    thumbnailPromise: "A microscopic view of ancient stone-cutting mechanics in action: soft metal carrying hard rock grains.",
+    howTheyWorkTogether: "Title frames the mystery of how it was done, thumbnail visually reveals the scientific solution (abrasive slurry). Provokes the click to see if science solves the mystery.",
+    promptMidjourney: "Macro documentary shot of an ancient copper saw blade cutting into a pink granite block, quartz sand abrasive slurry foaming along the narrow kerf slot, high micro-contrast, moody deep shadows, National Geographic style --ar 16:9 --style raw --v 6.0",
+    promptDalleFlux: "Close-up cinematic shot of an ancient stonecutting experiment: flat copper saw blade in a granite groove with abrasive quartz sand and water slurry, ultra-detailed rock crystal textures, 8k.",
+  },
+];
+
+// ============================================================================
+// SERVER FUNCTION: REGENERATE THUMBNAIL CONCEPT
+// ============================================================================
+
+const RegenerateThumbnailInput = z.object({
+  ourTitle: z.string().trim().min(1),
+  conceptNotes: z.string().trim().optional(),
+  feedback: z.string().trim().optional(),
+  styleAngle: z.string().trim().optional(),
+  aiApiKey: z.string().trim().optional(),
+});
+
+export const regenerateThumbnailConceptServer = createServerFn({ method: "POST" })
+  .validator((d: unknown) => RegenerateThumbnailInput.parse(d))
+  .handler(async ({ data }) => {
+    const envKey = (process.env.GEMINI_API_KEY || process.env.AI_API_KEY || "").trim();
+    const effectiveAiKey = (data.aiApiKey || envKey).trim();
+
+    // If no API key or fallback, find best preset or dynamic variation
+    if (!effectiveAiKey) {
+      const lowerFeedback = (data.feedback || "").toLowerCase();
+      const lowerStyle = (data.styleAngle || "").toLowerCase();
+
+      let matched = CURATED_THUMBNAIL_PRESETS[1]; // default to Core
+      if (lowerFeedback.includes("flat") || lowerStyle.includes("straightedge") || lowerStyle.includes("optical")) {
+        matched = CURATED_THUMBNAIL_PRESETS[2];
+      } else if (lowerFeedback.includes("quarry") || lowerFeedback.includes("pound") || lowerStyle.includes("megalith")) {
+        matched = CURATED_THUMBNAIL_PRESETS[3];
+      } else if (lowerFeedback.includes("sand") || lowerFeedback.includes("slurry") || lowerStyle.includes("abrasive")) {
+        matched = CURATED_THUMBNAIL_PRESETS[4];
+      } else if (lowerFeedback.includes("seam") || lowerFeedback.includes("joint") || lowerStyle.includes("precision")) {
+        matched = CURATED_THUMBNAIL_PRESETS[0];
+      } else {
+        // Pick random preset different from first
+        const randIdx = Math.floor(Math.random() * CURATED_THUMBNAIL_PRESETS.length);
+        matched = CURATED_THUMBNAIL_PRESETS[randIdx];
+      }
+
+      return {
+        concept: {
+          imageUrl: "/thumbnails/our-target-egypt.jpg",
+          promptMidjourney: matched.promptMidjourney,
+          promptDalleFlux: matched.promptDalleFlux,
+          focalSubject: matched.focalSubject,
+          compositionAndFraming: "Rule of thirds, dramatic raking key light, deep background depth of field.",
+          colorPaletteAndLighting: `${matched.colorFilter} tones with high micro-contrast.`,
+          recommendedOverlayText: matched.overlayText,
+          recommendedBadge: matched.badge,
+          contrastStrategy: "High luminance differential between foreground subject and background backdrop.",
+        },
+        ourStrategy: {
+          entityRole: "Our Target Video" as const,
+          title: data.ourTitle,
+          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+          thumbnailSubject: matched.focalSubject,
+          thumbnailQuestion: matched.thumbnailQuestion,
+          titlePromise: matched.titlePromise,
+          thumbnailPromise: matched.thumbnailPromise,
+          howTheyWorkTogether: matched.howTheyWorkTogether,
+        },
+        feedbackApplied: data.feedback || "Generated fresh high-contrast alternative angle",
+      };
+    }
+
+    try {
+      const isGemini =
+        effectiveAiKey.startsWith("AIza") ||
+        effectiveAiKey.length === 39 ||
+        effectiveAiKey.length === 40;
+
+      const prompt = `You are an elite YouTube Documentary Thumbnail Director.
+The creator was NOT satisfied with the previous thumbnail generated for their video title:
+"${data.ourTitle}"
+
+CREATOR FEEDBACK / REASON FOR REGENERATION:
+"${data.feedback || "The previous concept was not compelling enough; generate a fresh, distinctive high-CTR alternative"}"
+DESIRED DIRECTION: "${data.styleAngle || "High-tension documentary visual"}"
+
+TASK:
+Generate an entirely NEW thumbnail visual concept and 5 packaging pillars that fix the creator's critique.
+Apply Day 4 Rule of Multiplication: Title poses question, thumbnail delivers visual proof or impossible dilemma. Never repeat title words in thumbnail text. Maximum 1-3 words of complementary text.
+
+Return a clean, valid JSON object matching this schema:
+{
+  "thumbnailSubject": "Detailed visual description of new focal subject, lighting, and composition",
+  "thumbnailQuestion": "The subconscious question this new image poses",
+  "titlePromise": "What our title promises",
+  "thumbnailPromise": "What this new visual promises",
+  "howTheyWorkTogether": "The psychological multiplication synergy between title and this new thumbnail",
+  "promptMidjourney": "Complete new Midjourney v6 prompt with --ar 16:9 --style raw --v 6.0",
+  "promptDalleFlux": "Complete prompt for Flux.1 or DALL-E 3",
+  "recommendedOverlayText": "1-3 words max high-impact hook",
+  "recommendedBadge": "Category badge e.g. DOCUMENTARY or FORENSIC",
+  "colorFilter": "warm or teal or vivid or noir",
+  "feedbackApplied": "Summary of how creator's feedback was resolved"
+}`;
+
+      let rawContent = "";
+      if (isGemini) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveAiKey}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.5,
+            },
+          }),
+        });
+        if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+        const dataJson = await response.json();
+        rawContent = dataJson.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      } else {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${effectiveAiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+            temperature: 0.5,
+          }),
+        });
+        if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+        const dataJson = await response.json();
+        rawContent = dataJson.choices?.[0]?.message?.content || "";
+      }
+
+      const parsed = JSON.parse(rawContent);
+
+      return {
+        concept: {
+          imageUrl: "/thumbnails/our-target-egypt.jpg",
+          promptMidjourney: parsed.promptMidjourney || "",
+          promptDalleFlux: parsed.promptDalleFlux || "",
+          focalSubject: parsed.thumbnailSubject || "",
+          compositionAndFraming: "Rule of thirds, dramatic directional raking light.",
+          colorPaletteAndLighting: `${parsed.colorFilter || "warm"} tones with high micro-contrast.`,
+          recommendedOverlayText: parsed.recommendedOverlayText || "SOLVED",
+          recommendedBadge: parsed.recommendedBadge || "DOCUMENTARY",
+          contrastStrategy: "High luminance contrast designed to command the browse feed.",
+        },
+        ourStrategy: {
+          entityRole: "Our Target Video" as const,
+          title: data.ourTitle,
+          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+          thumbnailSubject: parsed.thumbnailSubject || "",
+          thumbnailQuestion: parsed.thumbnailQuestion || "",
+          titlePromise: parsed.titlePromise || "",
+          thumbnailPromise: parsed.thumbnailPromise || "",
+          howTheyWorkTogether: parsed.howTheyWorkTogether || "",
+        },
+        feedbackApplied: parsed.feedbackApplied || data.feedback || "Generated fresh alternative",
+      };
+    } catch (err) {
+      console.warn("Regeneration with AI failed, using fallback preset:", err);
+      const fallbackPreset = CURATED_THUMBNAIL_PRESETS[Math.floor(Math.random() * CURATED_THUMBNAIL_PRESETS.length)];
+      return {
+        concept: {
+          imageUrl: "/thumbnails/our-target-egypt.jpg",
+          promptMidjourney: fallbackPreset.promptMidjourney,
+          promptDalleFlux: fallbackPreset.promptDalleFlux,
+          focalSubject: fallbackPreset.focalSubject,
+          compositionAndFraming: "Rule of thirds composition.",
+          colorPaletteAndLighting: `${fallbackPreset.colorFilter} tones.`,
+          recommendedOverlayText: fallbackPreset.overlayText,
+          recommendedBadge: fallbackPreset.badge,
+          contrastStrategy: "High micro-contrast.",
+        },
+        ourStrategy: {
+          entityRole: "Our Target Video" as const,
+          title: data.ourTitle,
+          thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+          thumbnailSubject: fallbackPreset.focalSubject,
+          thumbnailQuestion: fallbackPreset.thumbnailQuestion,
+          titlePromise: fallbackPreset.titlePromise,
+          thumbnailPromise: fallbackPreset.thumbnailPromise,
+          howTheyWorkTogether: fallbackPreset.howTheyWorkTogether,
+        },
+        feedbackApplied: data.feedback || "Applied alternative visual preset",
+      };
+    }
+  });

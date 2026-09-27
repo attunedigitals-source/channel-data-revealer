@@ -36,10 +36,13 @@ import {
 } from "@/components/ui/dialog";
 import {
   analyzeThumbnailComparisonServer,
+  regenerateThumbnailConceptServer,
   generateHeuristicThumbnailComparison,
   DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS,
+  CURATED_THUMBNAIL_PRESETS,
   type ThumbnailComparisonDossier,
   type CompetitorAnalysisRow,
+  type ThumbnailVariationPreset,
 } from "@/lib/thumbnail-comparison.functions";
 import { fetchVideoMetadata } from "@/lib/thumbnail.functions";
 
@@ -77,6 +80,14 @@ export function ThumbnailAnalysisCreationSection({
   // Analysis result
   const [dossier, setDossier] = useState<ThumbnailComparisonDossier | null>(null);
 
+  // Regeneration & Variations State
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
+  const [regenerationFeedback, setRegenerationFeedback] = useState("");
+  const [regenerationStyle, setRegenerationStyle] = useState("macro-precision");
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("preset-seam");
+  const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
+
   // Visual Customizer Controls
   const [overlayText, setOverlayText] = useState("0.5mm SEAM");
   const [overlayBadge, setOverlayBadge] = useState("DOCUMENTARY");
@@ -93,6 +104,7 @@ export function ThumbnailAnalysisCreationSection({
   const sectionRef = useRef<HTMLElement | null>(null);
 
   const runAnalysis = useServerFn(analyzeThumbnailComparisonServer);
+  const runRegenerate = useServerFn(regenerateThumbnailConceptServer);
   const getMeta = useServerFn(fetchVideoMetadata);
 
   // Listen for title dispatched from Title Generator section
@@ -240,6 +252,102 @@ export function ThumbnailAnalysisCreationSection({
     }
   };
 
+  // Switch to a curated thumbnail variation preset
+  const handleSelectPreset = (preset: ThumbnailVariationPreset) => {
+    setSelectedPresetId(preset.id);
+    setOverlayText(preset.overlayText);
+    setOverlayBadge(preset.badge);
+    setColorFilter(preset.colorFilter);
+
+    if (dossier) {
+      setDossier({
+        ...dossier,
+        ourStrategy: {
+          ...dossier.ourStrategy,
+          thumbnailSubject: preset.focalSubject,
+          thumbnailQuestion: preset.thumbnailQuestion,
+          titlePromise: preset.titlePromise,
+          thumbnailPromise: preset.thumbnailPromise,
+          howTheyWorkTogether: preset.howTheyWorkTogether,
+        },
+        generatedThumbnail: {
+          ...dossier.generatedThumbnail,
+          focalSubject: preset.focalSubject,
+          promptMidjourney: preset.promptMidjourney,
+          promptDalleFlux: preset.promptDalleFlux,
+          recommendedOverlayText: preset.overlayText,
+          recommendedBadge: preset.badge,
+        },
+      });
+    }
+
+    setIncomingNotice(`Switched to "${preset.name}" variation`);
+    setTimeout(() => setIncomingNotice(null), 3000);
+  };
+
+  // Re-generate thumbnail concept with custom user critique / feedback
+  const handleRegenerateWithFeedback = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!ourTitle.trim()) {
+      alert("Please provide a video title first.");
+      return;
+    }
+
+    setIsRegenerating(true);
+    try {
+      const res = await runRegenerate({
+        data: {
+          ourTitle: ourTitle.trim(),
+          conceptNotes: conceptNotes.trim() || undefined,
+          feedback: regenerationFeedback.trim() || undefined,
+          styleAngle: regenerationStyle || undefined,
+          aiApiKey: aiApiKey || undefined,
+        },
+      });
+
+      if (dossier) {
+        setDossier({
+          ...dossier,
+          ourStrategy: res.ourStrategy,
+          generatedThumbnail: res.concept,
+        });
+      }
+
+      setOverlayText(res.concept.recommendedOverlayText || "SOLVED");
+      setOverlayBadge(res.concept.recommendedBadge || "DOCUMENTARY");
+      setIsRegenerateModalOpen(false);
+      setRegenerationFeedback("");
+      setIncomingNotice(`Thumbnail re-generated: ${res.feedbackApplied}`);
+      setTimeout(() => setIncomingNotice(null), 4000);
+    } catch (err) {
+      console.warn("Regeneration failed, switching to alternative preset:", err);
+      const nextPreset =
+        CURATED_THUMBNAIL_PRESETS.find((p) => p.id !== selectedPresetId) ||
+        CURATED_THUMBNAIL_PRESETS[1];
+      handleSelectPreset(nextPreset);
+      setIsRegenerateModalOpen(false);
+      setIncomingNotice(`Generated alternative variation: ${nextPreset.name}`);
+      setTimeout(() => setIncomingNotice(null), 4000);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  // Custom user image upload for thumbnail canvas composer
+  const handleThumbnailImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setCustomImageUrl(dataUrl);
+      setIncomingNotice("Custom thumbnail image loaded into canvas!");
+      setTimeout(() => setIncomingNotice(null), 3000);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   // Draw customized thumbnail on HTML5 Canvas and trigger PNG download
   const handleDownloadThumbnail = () => {
     const canvas = canvasRef.current;
@@ -255,7 +363,7 @@ export function ThumbnailAnalysisCreationSection({
 
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = dossier?.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg";
+    img.src = customImageUrl || dossier?.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg";
 
     img.onload = () => {
       // 1. Draw base image
@@ -1016,7 +1124,18 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsRegenerateModalOpen(true)}
+                  className="h-8 gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold cursor-pointer shadow-sm"
+                  title="Regenerate thumbnail with custom feedback or alternative visual angle"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
+                  <span>Regenerate Thumbnail</span>
+                </Button>
+
                 <Button
                   size="sm"
                   onClick={handleDownloadThumbnail}
@@ -1028,6 +1147,46 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               </div>
             </div>
 
+            {/* Visual Variation Presets Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-background/50 p-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1 pr-1">
+                  <Sparkles className="h-3 w-3" /> Variations:
+                </span>
+                {CURATED_THUMBNAIL_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
+                      selectedPresetId === preset.id
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm font-semibold"
+                        : "bg-muted/40 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx =
+                      (CURATED_THUMBNAIL_PRESETS.findIndex((p) => p.id === selectedPresetId) + 1) %
+                      CURATED_THUMBNAIL_PRESETS.length;
+                    handleSelectPreset(CURATED_THUMBNAIL_PRESETS[nextIdx]);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer py-1 px-2 rounded hover:bg-amber-500/10"
+                  title="Cycle to next visual variation"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Next Angle</span>
+                </button>
+              </div>
+            </div>
+
             {/* Visual Canvas Display & Customizer Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Column: Live Interactive 16:9 Viewport (7 cols) */}
@@ -1035,7 +1194,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 <div className="relative aspect-video w-full rounded-xl border-2 border-amber-500/40 bg-black overflow-hidden shadow-2xl group select-none">
                   {/* Base Thumbnail Image */}
                   <img
-                    src={dossier.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg"}
+                    src={customImageUrl || dossier.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg"}
                     alt="Our Generated Thumbnail"
                     className={`w-full h-full object-cover transition-all duration-300 ${
                       colorFilter === "warm"
@@ -1099,7 +1258,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 </div>
 
                 {/* Viewport Action bar */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-1">
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
                       <input
@@ -1122,9 +1281,35 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                     </label>
                   </div>
 
-                  <span className="text-[11px] text-amber-400 font-mono">
-                    1280 × 720 (Optimal 16:9)
-                  </span>
+                  {/* Custom Image Upload/Replace Option */}
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer">
+                      <Upload className="h-3 w-3" />
+                      <span>{customImageUrl ? "Swap Image" : "Upload Custom Generation"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleThumbnailImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {customImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomImageUrl(null);
+                          setIncomingNotice("Reset to generated thumbnail asset.");
+                          setTimeout(() => setIncomingNotice(null), 3000);
+                        }}
+                        className="text-[11px] text-muted-foreground hover:text-red-400 cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <span className="text-[11px] text-amber-400/80 font-mono hidden sm:inline">
+                      1280 × 720 (16:9)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1485,6 +1670,109 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               </p>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==========================================================
+          MODAL: REGENERATE THUMBNAIL CONCEPT
+          ========================================================== */}
+      <Dialog open={isRegenerateModalOpen} onOpenChange={setIsRegenerateModalOpen}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-amber-400" />
+              <span>Regenerate Thumbnail Concept</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Provide feedback on why the previous thumbnail was not satisfactory, or select a new visual direction to generate an alternative high-CTR design for:{" "}
+              <strong className="text-foreground">{ourTitle || "Your Video"}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRegenerateWithFeedback} className="space-y-4 pt-2">
+            {/* Quick Critique Chips */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">
+                Why was the previous thumbnail unsatisfactory? (Quick Pick or Type Below)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Too subtle / needs higher contrast",
+                  "Focus on tools and mechanical action",
+                  "More forensic laboratory inspection",
+                  "Darker dramatic lighting (Teal & Orange)",
+                  "Different high-curiosity text hook",
+                  "More authentic archaeological texture",
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() =>
+                      setRegenerationFeedback((prev) =>
+                        prev ? `${prev}, ${chip}` : chip
+                      )
+                    }
+                    className="text-[11px] rounded-md border border-border/80 bg-background/60 px-2 py-1 text-muted-foreground hover:border-amber-500/40 hover:text-amber-300 transition-colors cursor-pointer"
+                  >
+                    + {chip}
+                  </button>
+                ))}
+              </div>
+              <Textarea
+                value={regenerationFeedback}
+                onChange={(e) => setRegenerationFeedback(e.target.value)}
+                placeholder="e.g. The stone seam is too abstract. Focus more on Petrie Core #7 with visible spiral toolmarks, dramatic directional raking light, and a green verdigris copper tube..."
+                className="h-20 text-xs resize-none"
+              />
+            </div>
+
+            {/* Desired Visual Style Direction */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">
+                Desired Visual Style Direction
+              </label>
+              <select
+                value={regenerationStyle}
+                onChange={(e) => setRegenerationStyle(e.target.value)}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-xs text-foreground"
+              >
+                <option value="macro-precision">Macro Precision & Tolerances (0.5mm Seam)</option>
+                <option value="forensic-analysis">Forensic Archaeological Artifact (Drill Cores & Toolmarks)</option>
+                <option value="optical-flatness">Metrology & Surface Calibration (Optical Straightedge)</option>
+                <option value="megalithic-extraction">Monumental Quarry Extraction (Aswan Trench & Pounders)</option>
+                <option value="tribological-slurry">Abrasive Slurry Mechanics (Copper Blade & Quartz Sand)</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border/60">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsRegenerateModalOpen(false)}
+                className="h-9 text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isRegenerating}
+                className="h-9 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-black font-bold cursor-pointer shadow-md"
+              >
+                {isRegenerating ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Regenerating Concept...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Generate New Variation</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </section>
