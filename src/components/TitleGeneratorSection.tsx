@@ -21,6 +21,7 @@ import {
   Lightbulb,
   Brain,
   Compass,
+  ImagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -901,6 +902,27 @@ export function TitleGeneratorSection({
                 </Button>
 
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const top = results[0];
+                    if (top) {
+                      window.dispatchEvent(
+                        new CustomEvent("load-title-to-thumbnail", {
+                          detail: { title: top.workingTitle, topic: top.topic },
+                        })
+                      );
+                    }
+                    document.getElementById("thumbnail-lab")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="h-8 gap-1.5 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10 cursor-pointer shadow-sm"
+                  title="Send title to 2-Competitor Thumbnail Analysis & Studio"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  <span>Thumbnail Studio</span>
+                </Button>
+
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
@@ -1079,6 +1101,22 @@ export function TitleGeneratorSection({
                             title="Map into 7-Beat Story Map (Day 5)"
                           >
                             <Compass className="h-3.5 w-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(
+                                new CustomEvent("load-title-to-thumbnail", {
+                                  detail: { title: row.workingTitle, topic: row.topic },
+                                })
+                              );
+                              document.getElementById("thumbnail-lab")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className="rounded p-1.5 text-amber-400 hover:bg-amber-500/15 hover:text-amber-300 transition-colors cursor-pointer"
+                            title="Send to Thumbnail Analysis & Studio"
+                          >
+                            <ImagePlus className="h-3.5 w-3.5" />
                           </button>
 
                           <button
