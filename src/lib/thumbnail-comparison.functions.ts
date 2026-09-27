@@ -43,6 +43,7 @@ export interface ThumbnailComparisonDossier {
     howToOutperformBoth: string;
   };
   ourStrategy: CompetitorAnalysisRow;
+  ourAlternativeStrategy?: CompetitorAnalysisRow;
   generatedThumbnail: GeneratedThumbnailConcept;
   createdAt: string;
 }
@@ -98,6 +99,19 @@ export const DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS: ThumbnailComparisonDossier = {
     clickTriggers: ["Extreme Artifact Texture", "Cinematic Golden Hour Rim Light", "Sub-millimeter Joint Precision", "Prestige Documentary Tone"],
     visualStrengths: ["Highest visual fidelity", "No clickbait clutter", "Immediate authority", "Stands out in dark mode feed"],
     visualFlawsOrGaps: ["Requires thumbnail text to be extremely disciplined and minimal"],
+  },
+  ourAlternativeStrategy: {
+    entityRole: "Our Target Video",
+    title: "How Did Ancient Egyptians Achieve Such Precise Stonework?",
+    thumbnailUrl: "/thumbnails/our-target-egypt.jpg",
+    thumbnailSubject: "Macro optical contrast: An engineer's steel precision straightedge held against a polished granite block showing zero light bleed beneath it, juxtaposed with loose quartz sand abrasive grains under extreme high-magnification.",
+    thumbnailQuestion: "Can basic quartz desert sand and soft copper really grind crystalline quartz-bearing granite to optical flatness?",
+    titlePromise: "Promises a forensic deconstruction of the physical mechanics, material removal physics, and abrasive grain action behind ancient Egyptian stonework.",
+    thumbnailPromise: "Promises verifiable tolerance evidence (zero light bleed) paired with the microscopic mechanics of material removal.",
+    howTheyWorkTogether: "The title poses the broader historical enigma, while the thumbnail visually pits the optical tolerance standard against the abrasive mechanism. Together they frame an intellectual duel: proving both the extreme standard and the scientific explanation.",
+    clickTriggers: ["Optical Flatness Test", "Extreme Microscopic Abrasive Detail", "Scientific Rigor"],
+    visualStrengths: ["High technical curiosity", "Clean graphical split", "Intellectual intrigue"],
+    visualFlawsOrGaps: ["Slightly more technical; best for engineering/science leaning viewers"],
   },
   generatedThumbnail: {
     imageUrl: "/thumbnails/our-target-egypt.jpg",
@@ -204,6 +218,19 @@ export function generateHeuristicThumbnailComparison(input: {
       clickTriggers: ["Visual Anomaly", "Cinematic Raking Lighting", "Zero Clutter", "Pique Curiosity Gap"],
       visualStrengths: ["Dominates feed in mobile view", "High micro-contrast", "Pure prestige documentary packaging"],
       visualFlawsOrGaps: ["Requires strict adherence to minimal text"],
+    },
+    ourAlternativeStrategy: {
+      entityRole: "Our Target Video",
+      title: ourTitle,
+      thumbnailUrl: `/thumbnails/our-target-egypt.jpg`,
+      thumbnailSubject: `Alternative high-curiosity angle: Extreme macro split or forensic inspection visual revealing a critical physical clue for "${ourTitle}".`,
+      thumbnailQuestion: `Does this shocking physical evidence completely change what we thought about "${ourTitle.slice(0, 30)}..."?`,
+      titlePromise: `Promises an investigative, forensic investigation into the hidden mechanics of "${ourTitle}".`,
+      thumbnailPromise: `Promises undeniable empirical evidence and forensic visual stakes that force the viewer to click.`,
+      howTheyWorkTogether: `The title poses the broader question, while the thumbnail supplies the tangible forensic anomaly. Together they form an airtight curiosity loop.`,
+      clickTriggers: ["Forensic Inspection", "High Stakes", "Curiosity Loop"],
+      visualStrengths: ["High tension", "Instant intrigue"],
+      visualFlawsOrGaps: ["Must maintain documentary credibility without sensationalism"],
     },
     generatedThumbnail: {
       imageUrl: `/thumbnails/our-target-egypt.jpg`,

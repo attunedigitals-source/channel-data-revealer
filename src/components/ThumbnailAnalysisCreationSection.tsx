@@ -360,12 +360,11 @@ export function ThumbnailAnalysisCreationSection({
     };
   };
 
-  // Export Analysis Table to CSV
+  // Export Our Video Report Table to CSV
   const handleExportCsv = () => {
     if (!dossier) return;
     const headers = [
-      "Entity",
-      "Title",
+      "Concept",
       "Thumbnail Subject",
       "Thumbnail Question",
       "Title Promise",
@@ -374,26 +373,7 @@ export function ThumbnailAnalysisCreationSection({
     ];
     const rows = [
       [
-        "Competitor 1",
-        `"${dossier.competitor1.title.replace(/"/g, '""')}"`,
-        `"${dossier.competitor1.thumbnailSubject.replace(/"/g, '""')}"`,
-        `"${dossier.competitor1.thumbnailQuestion.replace(/"/g, '""')}"`,
-        `"${dossier.competitor1.titlePromise.replace(/"/g, '""')}"`,
-        `"${dossier.competitor1.thumbnailPromise.replace(/"/g, '""')}"`,
-        `"${dossier.competitor1.howTheyWorkTogether.replace(/"/g, '""')}"`,
-      ],
-      [
-        "Competitor 2",
-        `"${dossier.competitor2.title.replace(/"/g, '""')}"`,
-        `"${dossier.competitor2.thumbnailSubject.replace(/"/g, '""')}"`,
-        `"${dossier.competitor2.thumbnailQuestion.replace(/"/g, '""')}"`,
-        `"${dossier.competitor2.titlePromise.replace(/"/g, '""')}"`,
-        `"${dossier.competitor2.thumbnailPromise.replace(/"/g, '""')}"`,
-        `"${dossier.competitor2.howTheyWorkTogether.replace(/"/g, '""')}"`,
-      ],
-      [
-        "Our Target Video",
-        `"${dossier.ourStrategy.title.replace(/"/g, '""')}"`,
+        "Concept 1 (Primary)",
         `"${dossier.ourStrategy.thumbnailSubject.replace(/"/g, '""')}"`,
         `"${dossier.ourStrategy.thumbnailQuestion.replace(/"/g, '""')}"`,
         `"${dossier.ourStrategy.titlePromise.replace(/"/g, '""')}"`,
@@ -402,27 +382,38 @@ export function ThumbnailAnalysisCreationSection({
       ],
     ];
 
+    if (dossier.ourAlternativeStrategy) {
+      rows.push([
+        "Concept 2 (Alternative)",
+        `"${dossier.ourAlternativeStrategy.thumbnailSubject.replace(/"/g, '""')}"`,
+        `"${dossier.ourAlternativeStrategy.thumbnailQuestion.replace(/"/g, '""')}"`,
+        `"${dossier.ourAlternativeStrategy.titlePromise.replace(/"/g, '""')}"`,
+        `"${dossier.ourAlternativeStrategy.thumbnailPromise.replace(/"/g, '""')}"`,
+        `"${dossier.ourAlternativeStrategy.howTheyWorkTogether.replace(/"/g, '""')}"`,
+      ]);
+    }
+
     const csvContent =
       "data:text/csv;charset=utf-8,\uFEFF" +
       [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `thumbnail_5pillar_analysis_${Date.now()}.csv`);
+    link.setAttribute("download", `thumbnail_report_${dossier.targetTitle.slice(0, 20).replace(/\s+/g, "_")}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Copy Markdown Table to Clipboard
+  // Copy Markdown Report for Our Video to Clipboard
   const handleCopyMarkdown = () => {
     if (!dossier) return;
-    const md = `| Entity | Thumbnail Subject | Thumbnail Question | Title Promise | Thumbnail Promise | How they work Together |
+    const md = `### Generated Packaging Report for: "${dossier.targetTitle}"
+
+| Concept | Thumbnail Subject | Thumbnail Question | Title Promise | Thumbnail Promise | How they work Together |
 |---|---|---|---|---|---|
-| **Competitor 1**: *${dossier.competitor1.title}* | ${dossier.competitor1.thumbnailSubject} | ${dossier.competitor1.thumbnailQuestion} | ${dossier.competitor1.titlePromise} | ${dossier.competitor1.thumbnailPromise} | ${dossier.competitor1.howTheyWorkTogether} |
-| **Competitor 2**: *${dossier.competitor2.title}* | ${dossier.competitor2.thumbnailSubject} | ${dossier.competitor2.thumbnailQuestion} | ${dossier.competitor2.titlePromise} | ${dossier.competitor2.thumbnailPromise} | ${dossier.competitor2.howTheyWorkTogether} |
-| **OUR VIDEO**: *${dossier.ourStrategy.title}* | ${dossier.ourStrategy.thumbnailSubject} | ${dossier.ourStrategy.thumbnailQuestion} | ${dossier.ourStrategy.titlePromise} | ${dossier.ourStrategy.thumbnailPromise} | ${dossier.ourStrategy.howTheyWorkTogether} |
-`;
+| **Concept 1: Primary Blueprint** | ${dossier.ourStrategy.thumbnailSubject} | ${dossier.ourStrategy.thumbnailQuestion} | ${dossier.ourStrategy.titlePromise} | ${dossier.ourStrategy.thumbnailPromise} | ${dossier.ourStrategy.howTheyWorkTogether} |
+${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${dossier.ourAlternativeStrategy.thumbnailSubject} | ${dossier.ourAlternativeStrategy.thumbnailQuestion} | ${dossier.ourAlternativeStrategy.titlePromise} | ${dossier.ourAlternativeStrategy.thumbnailPromise} | ${dossier.ourAlternativeStrategy.howTheyWorkTogether} |\n` : ""}`;
     navigator.clipboard.writeText(md);
     setCopiedTable(true);
     setTimeout(() => setCopiedTable(false), 3000);
@@ -773,164 +764,234 @@ export function ThumbnailAnalysisCreationSection({
       {/* Main Analysis Output Area */}
       {dossier && (
         <div className="space-y-8 animate-in fade-in">
-          {/* Header Action Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-4">
-            <div className="space-y-1">
+          {/* 1. Competitor Benchmark & Strategic Gap Analysis Card */}
+          <div className="rounded-xl border border-border/80 bg-card/60 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-foreground">
-                  The 5-Pillar Packaging & Synergy Matrix
-                </h3>
-                <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-400">
-                  Day 4 Formula
+                <Badge variant="outline" className="border-blue-500/40 text-blue-400 text-xs font-semibold">
+                  Competitor Intelligence
                 </Badge>
+                <h4 className="text-sm font-bold text-foreground">
+                  Analysis of 2 Sample Competitor Packages (Viz-a-Viz Titles & Thumbnails)
+                </h4>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Analyzing how title and thumbnail work together as a psychological unit.
-              </p>
+              <span className="text-[11px] text-muted-foreground">
+                Informing the strategic differentiation of our video package
+              </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyMarkdown}
-                className="h-7 text-xs gap-1.5 cursor-pointer border-border hover:bg-accent"
-              >
-                {copiedTable ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                <span>{copiedTable ? "Copied Table" : "Copy Markdown"}</span>
-              </Button>
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Competitor 1 Benchmark */}
+              <div className="rounded-lg border border-border/70 bg-background/50 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border border-border/80 bg-black/20">
+                    <img
+                      src={dossier.competitor1.thumbnailUrl || "/thumbnails/competitor1-egypt.jpg"}
+                      alt="Competitor 1"
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute top-1 left-1">
+                      <Badge className="bg-blue-600/90 text-white border-0 text-[9px] px-1 py-0 h-3.5">
+                        Sample 1
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-semibold text-foreground text-xs line-clamp-2">
+                      {dossier.competitor1.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                      <strong className="text-foreground/90">Visual Subject:</strong> {dossier.competitor1.thumbnailSubject}
+                    </p>
+                  </div>
+                </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCsv}
-                className="h-7 text-xs gap-1.5 cursor-pointer border-border hover:bg-accent"
-              >
-                <FileSpreadsheet className="h-3 w-3 text-emerald-400" />
-                <span>Export CSV</span>
-              </Button>
+                <div className="grid gap-1.5 text-[11px] bg-muted/20 rounded p-2.5 border border-border/40">
+                  <p className="text-foreground/80">
+                    <strong className="text-blue-400">Title Promise:</strong> {dossier.competitor1.titlePromise}
+                  </p>
+                  <p className="text-amber-300/90 italic">
+                    <strong className="text-foreground/80 not-italic">Visual Question:</strong> "{dossier.competitor1.thumbnailQuestion}"
+                  </p>
+                  <p className="text-muted-foreground pt-1 border-t border-border/40">
+                    <strong className="text-red-400">Competitive Flaw / Blindspot:</strong> {dossier.competitor1.visualFlawsOrGaps?.[0] || "Relies on generic tropes without showing true precision artifacts."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Competitor 2 Benchmark */}
+              <div className="rounded-lg border border-border/70 bg-background/50 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border border-border/80 bg-black/20">
+                    <img
+                      src={dossier.competitor2.thumbnailUrl || "/thumbnails/competitor2-egypt.jpg"}
+                      alt="Competitor 2"
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute top-1 left-1">
+                      <Badge className="bg-purple-600/90 text-white border-0 text-[9px] px-1 py-0 h-3.5">
+                        Sample 2
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-semibold text-foreground text-xs line-clamp-2">
+                      {dossier.competitor2.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                      <strong className="text-foreground/90">Visual Subject:</strong> {dossier.competitor2.thumbnailSubject}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-1.5 text-[11px] bg-muted/20 rounded p-2.5 border border-border/40">
+                  <p className="text-foreground/80">
+                    <strong className="text-purple-400">Title Promise:</strong> {dossier.competitor2.titlePromise}
+                  </p>
+                  <p className="text-amber-300/90 italic">
+                    <strong className="text-foreground/80 not-italic">Visual Question:</strong> "{dossier.competitor2.thumbnailQuestion}"
+                  </p>
+                  <p className="text-muted-foreground pt-1 border-t border-border/40">
+                    <strong className="text-red-400">Competitive Flaw / Blindspot:</strong> {dossier.competitor2.visualFlawsOrGaps?.[0] || "Flirts with sensationalist tropes instead of authoritative proof."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Strategic Synthesis & Market Gap */}
+            <div className="rounded-lg border border-indigo-500/30 bg-indigo-950/25 p-3.5 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 text-indigo-300 font-bold">
+                <Zap className="h-4 w-4 text-indigo-400 shrink-0" />
+                <span>Market Gap & Winning Differentiation Strategy</span>
+              </div>
+              <p className="text-foreground/90 leading-relaxed text-[11px]">
+                <strong className="text-indigo-400">The Blind Spot:</strong> {dossier.competitiveSynthesis.gapInTheMarket}
+              </p>
+              <p className="text-muted-foreground leading-relaxed text-[11px]">
+                <strong className="text-foreground/90">Our Edge:</strong> {dossier.competitiveSynthesis.visualDifferentiationAngle} {dossier.competitiveSynthesis.howToOutperformBoth}
+              </p>
             </div>
           </div>
 
-          {/* Core 5-Column Matrix Table */}
-          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-            <table className="w-full min-w-[950px] border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
-                  <th className="px-4 py-3 text-left w-36">Entity / Role</th>
-                  <th className="px-4 py-3 text-left w-64">Thumbnail Subject</th>
-                  <th className="px-4 py-3 text-left w-56">Thumbnail Question</th>
-                  <th className="px-4 py-3 text-left w-56">Title Promise</th>
-                  <th className="px-4 py-3 text-left w-56">Thumbnail Promise</th>
-                  <th className="px-4 py-3 text-left w-72">How they work Together</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {/* Row 1: Competitor 1 */}
-                <tr className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3.5 align-top">
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="border-blue-500/30 text-blue-400 font-bold text-[10px]">
-                        Competitor 1
-                      </Badge>
-                      <p className="font-semibold text-foreground text-[11px] line-clamp-2">
-                        {dossier.competitor1.title}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/90 leading-relaxed">
-                    {dossier.competitor1.thumbnailSubject}
-                  </td>
-                  <td className="px-4 py-3.5 align-top font-medium text-amber-300/90 leading-relaxed italic">
-                    "{dossier.competitor1.thumbnailQuestion}"
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/80 leading-relaxed">
-                    {dossier.competitor1.titlePromise}
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/80 leading-relaxed">
-                    {dossier.competitor1.thumbnailPromise}
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-muted-foreground leading-relaxed">
-                    {dossier.competitor1.howTheyWorkTogether}
-                  </td>
-                </tr>
+          {/* 2. Main Generated Report Table (STRICTLY FOR OUR VIDEO TITLE) */}
+          <div className="rounded-xl border border-amber-500/40 bg-card shadow-lg overflow-hidden space-y-0">
+            {/* Report Header Bar */}
+            <div className="bg-gradient-to-r from-amber-950/40 via-card to-orange-950/30 px-6 py-4 border-b border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500 text-black font-extrabold text-[10px] tracking-wider uppercase">
+                    OUR VIDEO REPORT
+                  </Badge>
+                  <span className="text-xs text-amber-400 font-medium">Day 4 Packaging Formula</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground">
+                  Packaging Report for: <span className="text-amber-400">"{dossier.targetTitle}"</span>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  The 5 Core Pillars derived from the competitor analysis & the Rule of Multiplication.
+                </p>
+              </div>
 
-                {/* Row 2: Competitor 2 */}
-                <tr className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3.5 align-top">
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="border-purple-500/30 text-purple-400 font-bold text-[10px]">
-                        Competitor 2
-                      </Badge>
-                      <p className="font-semibold text-foreground text-[11px] line-clamp-2">
-                        {dossier.competitor2.title}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/90 leading-relaxed">
-                    {dossier.competitor2.thumbnailSubject}
-                  </td>
-                  <td className="px-4 py-3.5 align-top font-medium text-amber-300/90 leading-relaxed italic">
-                    "{dossier.competitor2.thumbnailQuestion}"
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/80 leading-relaxed">
-                    {dossier.competitor2.titlePromise}
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-foreground/80 leading-relaxed">
-                    {dossier.competitor2.thumbnailPromise}
-                  </td>
-                  <td className="px-4 py-3.5 align-top text-muted-foreground leading-relaxed">
-                    {dossier.competitor2.howTheyWorkTogether}
-                  </td>
-                </tr>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyMarkdown}
+                  className="h-8 text-xs gap-1.5 cursor-pointer border-amber-500/30 bg-background/60 hover:bg-amber-500/10 text-amber-300"
+                >
+                  {copiedTable ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>{copiedTable ? "Copied" : "Copy Report"}</span>
+                </Button>
 
-                {/* Row 3: Synthesis & Market Gap */}
-                <tr className="bg-indigo-950/20 border-y-2 border-indigo-500/30">
-                  <td className="px-4 py-3.5 align-top">
-                    <Badge className="bg-indigo-500/20 text-indigo-300 border-0 font-bold text-[10px]">
-                      Market Gap & Flaws
-                    </Badge>
-                  </td>
-                  <td colSpan={5} className="px-4 py-3.5 align-top space-y-1.5">
-                    <p className="text-foreground/90 leading-relaxed">
-                      <strong className="text-indigo-400">Competitive Blind Spot:</strong> {dossier.competitiveSynthesis.gapInTheMarket}
-                    </p>
-                    <p className="text-muted-foreground text-[11px] leading-relaxed">
-                      <strong className="text-foreground/90">Visual Differentiation Strategy:</strong> {dossier.competitiveSynthesis.visualDifferentiationAngle}
-                    </p>
-                  </td>
-                </tr>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCsv}
+                  className="h-8 text-xs gap-1.5 cursor-pointer border-amber-500/30 bg-background/60 hover:bg-amber-500/10 text-amber-300"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Export CSV</span>
+                </Button>
+              </div>
+            </div>
 
-                {/* Row 4: Our Winning Target Blueprint */}
-                <tr className="bg-gradient-to-r from-amber-950/30 via-card to-orange-950/20 border-t-2 border-amber-500/50">
-                  <td className="px-4 py-4 align-top">
-                    <div className="space-y-1">
-                      <Badge className="bg-amber-500 text-black font-extrabold text-[10px] tracking-wide">
-                        OUR BLUEPRINT
-                      </Badge>
-                      <p className="font-bold text-amber-400 text-xs line-clamp-2">
-                        {dossier.ourStrategy.title}
+            {/* The 5-Column Matrix Table (STRICTLY FOR OUR VIDEO TITLE) */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[920px] border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/70 text-muted-foreground font-bold text-[11px] uppercase tracking-wider">
+                    <th className="px-5 py-3.5 text-left w-64">Thumbnail Subject</th>
+                    <th className="px-5 py-3.5 text-left w-56">Thumbnail Question</th>
+                    <th className="px-5 py-3.5 text-left w-56">Title Promise</th>
+                    <th className="px-5 py-3.5 text-left w-56">Thumbnail Promise</th>
+                    <th className="px-5 py-3.5 text-left w-72">How they work Together</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {/* Row 1: Primary Winning Blueprint */}
+                  <tr className="bg-amber-950/15 hover:bg-amber-950/25 transition-colors">
+                    <td className="px-5 py-4 align-top">
+                      <div className="space-y-1.5">
+                        <Badge className="bg-amber-500/20 text-amber-300 border-0 text-[10px] font-bold">
+                          CONCEPT 1: PRIMARY BLUEPRINT
+                        </Badge>
+                        <p className="text-foreground leading-relaxed font-medium">
+                          {dossier.ourStrategy.thumbnailSubject}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 align-top">
+                      <p className="font-bold text-amber-300 leading-relaxed italic">
+                        "{dossier.ourStrategy.thumbnailQuestion}"
                       </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 align-top font-medium text-foreground leading-relaxed">
-                    {dossier.ourStrategy.thumbnailSubject}
-                  </td>
-                  <td className="px-4 py-4 align-top font-bold text-amber-300 leading-relaxed italic">
-                    "{dossier.ourStrategy.thumbnailQuestion}"
-                  </td>
-                  <td className="px-4 py-4 align-top text-foreground/90 leading-relaxed">
-                    {dossier.ourStrategy.titlePromise}
-                  </td>
-                  <td className="px-4 py-4 align-top text-foreground/90 leading-relaxed">
-                    {dossier.ourStrategy.thumbnailPromise}
-                  </td>
-                  <td className="px-4 py-4 align-top font-medium text-amber-200/90 leading-relaxed">
-                    {dossier.ourStrategy.howTheyWorkTogether}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                    <td className="px-5 py-4 align-top text-foreground/90 leading-relaxed">
+                      {dossier.ourStrategy.titlePromise}
+                    </td>
+                    <td className="px-5 py-4 align-top text-foreground/90 leading-relaxed">
+                      {dossier.ourStrategy.thumbnailPromise}
+                    </td>
+                    <td className="px-5 py-4 align-top">
+                      <p className="font-medium text-amber-100/90 leading-relaxed">
+                        {dossier.ourStrategy.howTheyWorkTogether}
+                      </p>
+                    </td>
+                  </tr>
+
+                  {/* Row 2: Alternative Concept (Option B) if available */}
+                  {dossier.ourAlternativeStrategy && (
+                    <tr className="hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-4 align-top">
+                        <div className="space-y-1.5">
+                          <Badge variant="outline" className="border-blue-500/40 text-blue-400 text-[10px] font-bold">
+                            CONCEPT 2: HIGH-CURIOSITY ANGLE
+                          </Badge>
+                          <p className="text-foreground/90 leading-relaxed font-medium">
+                            {dossier.ourAlternativeStrategy.thumbnailSubject}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 align-top">
+                        <p className="font-bold text-blue-300 leading-relaxed italic">
+                          "{dossier.ourAlternativeStrategy.thumbnailQuestion}"
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 align-top text-foreground/80 leading-relaxed">
+                        {dossier.ourAlternativeStrategy.titlePromise}
+                      </td>
+                      <td className="px-5 py-4 align-top text-foreground/80 leading-relaxed">
+                        {dossier.ourAlternativeStrategy.thumbnailPromise}
+                      </td>
+                      <td className="px-5 py-4 align-top">
+                        <p className="text-muted-foreground leading-relaxed">
+                          {dossier.ourAlternativeStrategy.howTheyWorkTogether}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* ==========================================================
