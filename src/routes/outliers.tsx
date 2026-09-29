@@ -41,6 +41,12 @@ import { ApiKeyModal, API_KEY_STORAGE_KEY, AI_KEY_STORAGE_KEY } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/outliers")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -190,21 +196,22 @@ export function OutliersPage() {
     onError: (err) => {
       console.warn("Outliers query error, falling back to local dataset:", err);
       const qLower = (query || searchParams?.q || "").toLowerCase().trim();
+      let pool = [...CURATED_OUTLIERS];
       if (qLower) {
-        const matches = CURATED_OUTLIERS.filter(
+        const matches = pool.filter(
           (o) =>
             o.title.toLowerCase().includes(qLower) ||
             o.channelTitle.toLowerCase().includes(qLower) ||
             o.channelHandle.toLowerCase().includes(qLower) ||
             (o.niche && o.niche.toLowerCase().includes(qLower)),
         );
-        const pool = matches.length > 0 ? matches : CURATED_OUTLIERS;
-        setTiles(pool.slice(0, 24));
-        setHasMore(pool.length > 24);
-      } else {
-        setTiles(CURATED_OUTLIERS.slice(0, 24));
-        setHasMore(CURATED_OUTLIERS.length > 24);
+        if (matches.length > 0) pool = matches;
       }
+      if (formatFilter === "shorts") {
+        pool = pool.filter((o) => o.isShort);
+      }
+      setTiles(pool.slice(0, 24));
+      setHasMore(pool.length > 24);
     },
   });
 
@@ -269,7 +276,11 @@ export function OutliersPage() {
       console.warn("Failed to load more outliers:", err);
       // Fallback: only slice brand-new items from CURATED_OUTLIERS if no query
       if (!query.trim()) {
-        const nextBatch = CURATED_OUTLIERS.slice(currentOffset, currentOffset + 24);
+        let pool = [...CURATED_OUTLIERS];
+        if (formatFilter === "shorts") {
+          pool = pool.filter((o) => o.isShort);
+        }
+        const nextBatch = pool.slice(currentOffset, currentOffset + 24);
         if (nextBatch.length > 0) {
           let addedCount = 0;
           setTiles((prev) => {
@@ -281,7 +292,7 @@ export function OutliersPage() {
             addedCount = fresh.length;
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
-          if (addedCount === 0 || currentOffset + 24 >= CURATED_OUTLIERS.length) {
+          if (addedCount === 0 || currentOffset + 24 >= pool.length) {
             setHasMore(false);
           } else {
             setPage(nextPage);
@@ -399,6 +410,9 @@ export function OutliersPage() {
     if (showTrackedOnly) {
       list = list.filter((t) => trackedIds.has(t.id));
     }
+    if (formatFilter === "shorts") {
+      list = list.filter((t) => t.isShort);
+    }
     if (contentTab === "slideshows") {
       list = list.filter((t) => t.isShort);
     } else if (contentTab === "creators") {
@@ -411,7 +425,7 @@ export function OutliersPage() {
       });
     }
     return list;
-  }, [tiles, showTrackedOnly, trackedIds, contentTab]);
+  }, [tiles, showTrackedOnly, trackedIds, formatFilter, contentTab]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0d0e15] text-[#e2e4ee] font-sans antialiased selection:bg-pink-500/30 selection:text-white">
@@ -700,21 +714,73 @@ export function OutliersPage() {
                 <span>{freshnessFilter === "fresh" ? "Fresh Content (<30d)" : "All Time"}</span>
               </button>
 
-              {/* Format Filter */}
-              <button
-                onClick={() => {
-                  const next = formatFilter === "all" ? "videos" : formatFilter === "videos" ? "shorts" : "all";
-                  setFormatFilter(next);
-                  fetchMutation.mutate({ format: next });
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#222638] bg-[#141622] text-[#868fa8] hover:text-white transition-colors"
-              >
-                <Video className="h-3.5 w-3.5 text-indigo-400" />
-                <span>
-                  {formatFilter === "all" ? "All Formats" : formatFilter === "videos" ? "Videos Only" : "Shorts Only"}
-                </span>
-                <ChevronDown className="h-3 w-3 text-[#555d77]" />
-              </button>
+              {/* Format Filter Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${
+                      formatFilter === "shorts"
+                        ? "border-pink-500/50 bg-pink-500/15 text-pink-300 font-semibold shadow-sm"
+                        : "border-[#222638] bg-[#141622] text-[#868fa8] hover:text-white hover:border-[#2d3248]"
+                    }`}
+                  >
+                    <Video className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>{formatFilter === "shorts" ? "Shorts" : "All Formats"}</span>
+                    <ChevronDown className="h-3 w-3 text-[#6c7694]" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="bg-[#141622] border border-[#262b3d] text-[#e2e4ee] p-1.5 rounded-xl shadow-2xl min-w-[160px] z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (formatFilter !== "all") {
+                        setFormatFilter("all");
+                        setPage(1);
+                        setHasMore(true);
+                        setNextPageToken(undefined);
+                        fetchMutation.mutate({ format: "all" });
+                      }
+                    }}
+                    className={`flex items-center justify-between px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
+                      formatFilter === "all"
+                        ? "bg-pink-500/15 text-pink-300 font-semibold"
+                        : "text-[#a0a9c6] hover:bg-[#1e2234] hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <LayoutGrid className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>All Formats</span>
+                    </div>
+                    {formatFilter === "all" && <Check className="h-3.5 w-3.5 text-pink-400 ml-2" />}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (formatFilter !== "shorts") {
+                        setFormatFilter("shorts");
+                        setPage(1);
+                        setHasMore(true);
+                        setNextPageToken(undefined);
+                        fetchMutation.mutate({ format: "shorts" });
+                      }
+                    }}
+                    className={`flex items-center justify-between px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
+                      formatFilter === "shorts"
+                        ? "bg-pink-500/15 text-pink-300 font-semibold"
+                        : "text-[#a0a9c6] hover:bg-[#1e2234] hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Flame className="h-3.5 w-3.5 text-pink-400 fill-pink-500/30" />
+                      <span>Shorts</span>
+                    </div>
+                    {formatFilter === "shorts" && <Check className="h-3.5 w-3.5 text-pink-400 ml-2" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Date Indicator */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#222638] bg-[#141622] text-[#868fa8]">

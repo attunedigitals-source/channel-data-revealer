@@ -73,4 +73,16 @@ describe("outlier.functions", () => {
       expect(b3Ids.has(item.id)).toBe(false);
     }
   });
+
+  it("verifies format filtering for shorts returns only shorts and all formats returns everything", () => {
+    const shortsOnly = CURATED_OUTLIERS.filter((o) => o.isShort);
+    expect(shortsOnly.length).toBeGreaterThanOrEqual(30);
+    for (const item of shortsOnly) {
+      expect(item.isShort).toBe(true);
+      expect(item.durationSec).toBeLessThanOrEqual(60);
+    }
+
+    const allFormats = CURATED_OUTLIERS;
+    expect(allFormats.length).toBeGreaterThan(shortsOnly.length);
+  });
 });
