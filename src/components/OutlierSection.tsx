@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-const PREVIEW_OUTLIERS = CURATED_OUTLIERS.slice(0, 5);
+const PREVIEW_OUTLIERS = CURATED_OUTLIERS.slice(0, 10);
 
 export function OutlierSection() {
   const [quickQuery, setQuickQuery] = useState("");
@@ -29,6 +29,7 @@ export function OutlierSection() {
     if (quickQuery.trim()) {
       navigate({
         to: "/outliers",
+        search: { q: quickQuery.trim() },
       });
     } else {
       navigate({
@@ -180,6 +181,23 @@ export function OutlierSection() {
                 </div>
               </Link>
             ))}
+          </div>
+
+          {/* Bottom call to action banner */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-pink-500/10 border border-pink-500/20">
+            <div className="flex items-center gap-2 text-xs text-pink-200">
+              <Flame className="h-4 w-4 fill-pink-500 text-pink-500 shrink-0" />
+              <span>
+                Showing 10 trending samples. The dedicated explorer supports <strong>infinite scrolling</strong> across channels and niches.
+              </span>
+            </div>
+            <Link
+              to="/outliers"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold text-xs shadow-md shadow-pink-500/25 transition-all hover:scale-[1.02] shrink-0"
+            >
+              <span>Explore All Viral Outliers</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </div>
       </div>
