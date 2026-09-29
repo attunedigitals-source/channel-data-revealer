@@ -58,11 +58,7 @@ import {
   CLAIM_CONFIDENCE_OPTIONS,
   CLAIM_IMPORTANCE_OPTIONS,
   SOURCE_TIER_OPTIONS,
-  DAY6_EXEMPLAR_EGYPTIAN,
-  DAY6_EXEMPLAR_SCANPYRAMIDS,
-  DAY6_EXEMPLAR_CHILEAN_FLIR,
-  ALL_DAY6_EXEMPLARS,
-  generateHeuristicFactVerification,
+  generateUnverifiedFallback,
   verifyClaimsServer,
   calculateDossierStats,
 } from "@/lib/factverification.functions";
@@ -137,11 +133,12 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
           setDossier(result);
         })
         .catch((err) => {
-          console.warn("Server fact verification error, using heuristic:", err);
-          const fallback = generateHeuristicFactVerification({
+          console.warn("Fact verification request failed:", err);
+          const fallback = generateUnverifiedFallback({
             storyTitle,
             coreQuestion,
             claims: formattedClaims,
+            reason: "Verification request failed. Try again, or verify these claims manually.",
           });
           setDossier(fallback);
         })
@@ -185,10 +182,11 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
       setManualTitle("");
       setManualClaimsText("");
     } catch (err) {
-      console.warn("Manual fact verification error, using heuristic:", err);
-      const fallback = generateHeuristicFactVerification({
+      console.warn("Manual fact verification request failed:", err);
+      const fallback = generateUnverifiedFallback({
         storyTitle,
         claims,
+        reason: "Verification request failed. Try again, or verify these claims manually.",
       });
       setDossier(fallback);
       setIsManualFormOpen(false);
@@ -209,7 +207,10 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) return;
+        const sheet = workbook.Sheets[firstSheetName];
+        if (!sheet) return;
         const json = XLSX.utils.sheet_to_json<any>(sheet);
 
         if (json.length === 0) return;
@@ -276,9 +277,10 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
           })
             .then((result) => setDossier(result))
             .catch(() => {
-              const fallback = generateHeuristicFactVerification({
+              const fallback = generateUnverifiedFallback({
                 storyTitle,
                 claims: extractedClaims,
+                reason: "Verification request failed. Try again, or verify these claims manually.",
               });
               setDossier(fallback);
             })
@@ -292,12 +294,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
     reader.readAsArrayBuffer(file);
   };
 
-  // Load official study exemplar on-demand
-  const loadExemplar = (ex: FactVerificationDossier) => {
-    setDossier(ex);
-    setIncomingNotice(`Loaded Reference Study: "${ex.storyTitle}"`);
-    setTimeout(() => setIncomingNotice(null), 4000);
-  };
+
 
   // Clear / reset
   const handleClear = () => {
@@ -500,7 +497,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-                  Week 1 • Day 6 System
+                  Week 1 • Fact Verification System
                 </span>
                 <Badge variant="outline" className="border-amber-500/40 text-amber-400 text-[10px] py-0 h-4">
                   Fact Verification & Source Discipline
@@ -521,7 +518,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
               className="h-8 gap-1.5 text-xs border-amber-500/30 hover:bg-amber-500/10 text-amber-300 cursor-pointer"
             >
               <BookOpen className="h-3.5 w-3.5" />
-              <span>Day 6 Study Guide</span>
+              <span>Verification Guide</span>
             </Button>
 
             <Button
@@ -619,7 +616,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
                   Documentary Subject / Working Title <span className="text-primary">*</span>
                 </label>
                 <Input
-                  placeholder="e.g. How Did Ancient Egyptians Achieve Such Precise Stonework?"
+                  placeholder="e.g. How Do Airplanes Actually Stay in the Air?"
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   required
@@ -763,7 +760,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
                   Import Spreadsheet
                 </h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Upload an existing 9-column Fact Verification workbook or any Day 4/5 sheet in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xlsx</code>, <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xls</code>, or <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.csv</code>.
+                  Upload an existing 9-column Fact Verification workbook or any exported sheet in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xlsx</code>, <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xls</code>, or <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.csv</code>.
                 </p>
               </div>
               <div className="pt-4">
@@ -780,48 +777,31 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
               </div>
             </div>
 
-            {/* Option 4: Load Reference Study */}
-            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between hover:border-amber-500/50 transition-all group">
+            {/* Option 4: How verification works */}
+            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between">
               <div className="space-y-2.5">
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
                   <BookOpen className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-semibold text-foreground group-hover:text-amber-300 transition-colors">
-                  Load Study Exemplar
-                </h4>
+                <h4 className="text-sm font-semibold text-foreground">How verification works</h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Inspect the official Day 6 curriculum research dossiers to learn how professional documentary makers categorize and verify claims.
+                  Claims are researched with live web search (via your Gemini or OpenAI key), and every source is
+                  cross-checked against real search results before being marked verified. Without an AI key, claims
+                  are returned as "Needs research" rather than guessed.
                 </p>
               </div>
-              <div className="pt-4 space-y-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadExemplar(DAY6_EXEMPLAR_EGYPTIAN)}
-                  className="w-full text-[11px] h-7 justify-start gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 cursor-pointer truncate"
-                >
-                  <span>🏛️</span>
-                  <span className="truncate">Egyptian Stonework (15 Claims — Day 6 Standard)</span>
-                </Button>
-                <div className="flex gap-1.5">
+              {!aiApiKey && onOpenKeyModal && (
+                <div className="pt-4">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => loadExemplar(DAY6_EXEMPLAR_SCANPYRAMIDS)}
-                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
+                    onClick={onOpenKeyModal}
+                    className="w-full text-[11px] h-7 justify-start gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 cursor-pointer"
                   >
-                    🌌 Cosmic Rays
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => loadExemplar(DAY6_EXEMPLAR_CHILEAN_FLIR)}
-                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
-                  >
-                    🛸 Chilean FLIR
+                    Add an AI key to enable verification
                   </Button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1119,17 +1099,17 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
       )}
 
       {/* ========================================================
-          MODAL 1: DAY 6 STUDY GUIDE
+          MODAL 1: VERIFICATION GUIDE
           ======================================================== */}
       <Dialog open={isStudyGuideOpen} onOpenChange={setIsStudyGuideOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-amber-400" />
-              Day 6 Study Guide: Documentary Research & Fact Verification
+              Verification Guide: Documentary Research & Fact Verification
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Complete reference rules from the Day 6 curriculum on determining what you can actually claim in narration.
+              Complete reference rules from the methodology on determining what you can actually claim in narration.
             </DialogDescription>
           </DialogHeader>
 
@@ -1198,7 +1178,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
             <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/25 space-y-2">
               <h5 className="font-bold text-xs text-indigo-400 flex items-center gap-1.5">
                 <span>🎯</span>
-                <span>Day 6 Assessment Standards: What We Must Be Careful About</span>
+                <span>Verification Standards: What We Must Be Careful About</span>
               </h5>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground list-disc pl-4">
                 <li>
@@ -1237,7 +1217,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
                 step: "01",
                 label: "STORY QUESTION",
                 desc: "The central dilemma driving the documentary.",
-                example: "How did ancient Egyptians cut hard granite without steel?",
+                example: "How do commercial airplanes stay in the air with such heavy engines?",
                 color: "border-blue-500/40 text-blue-400",
               },
               {
@@ -1251,7 +1231,7 @@ export function FactVerificationSection({ aiApiKey, onOpenKeyModal }: FactVerifi
                 step: "03",
                 label: "SOURCE",
                 desc: "Locating primary excavation reports or peer-reviewed replications.",
-                example: "Stocks (2003) Experiments in Egyptian Archaeology; Lucas & Harris (1962).",
+                example: "NASA Technical Reports Server (2019); peer-reviewed aerodynamics journal article.",
                 color: "border-purple-500/40 text-purple-400",
               },
               {

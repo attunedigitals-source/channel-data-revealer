@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getChannelNicheAndStyle, analyzeOutlierPackaging } from "./classifier";
+import { resolveYoutubeKey, hasServerYoutubeKey, fetchWithRetry } from "./server-config";
 
 const Input = z.object({
   url: z.string().trim().min(3).max(300),
@@ -25,21 +26,17 @@ export type ChannelReport = {
 const API = "https://www.googleapis.com/youtube/v3";
 
 export const getApiConfigStatus = createServerFn({ method: "GET" }).handler(async () => {
-  const hasServerKey = Boolean(
-    process.env["YOUTUBE_API_KEY"] ||
-      process.env["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"],
-  );
-  return { hasServerKey };
+  return { hasServerKey: hasServerYoutubeKey() };
 });
 
 export const validateApiKey = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ apiKey: z.string().trim().min(1) }).parse(input))
+  .validator((input: unknown) => z.object({ apiKey: z.string().trim().min(1) }).parse(input))
   .handler(async ({ data }) => {
     try {
-      const res = await fetch(
+      const res = await fetchWithRetry(
         `${API}/channels?part=id&id=UC_x5XG1OV2P6uZZ5FSM9Ttw&key=${encodeURIComponent(data.apiKey)}`,
+        {},
+        { retries: 1 },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -52,7 +49,7 @@ export const validateApiKey = createServerFn({ method: "POST" })
     }
   });
 
-function parseIdentifier(raw: string) {
+export function parseIdentifier(raw: string) {
   const value = raw.trim();
   const vidMatch =
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/ ]{11})/i.exec(
@@ -77,7 +74,7 @@ function parseIdentifier(raw: string) {
 
 async function yt(path: string, params: Record<string, string>, key: string) {
   const qs = new URLSearchParams({ ...params, key }).toString();
-  const res = await fetch(`${API}/${path}?${qs}`);
+  const res = await fetchWithRetry(`${API}/${path}?${qs}`);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`YouTube API error (${res.status}): ${body.slice(0, 300)}`);
@@ -85,7 +82,7 @@ async function yt(path: string, params: Record<string, string>, key: string) {
   return res.json() as Promise<any>;
 }
 
-function isoDurationToSeconds(iso: string) {
+export function isoDurationToSeconds(iso: string) {
   const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
   if (!m) return 0;
   const [, d, h, mi, s] = m;
@@ -105,14 +102,9 @@ function formatDuration(totalSeconds: number) {
 const nf = new Intl.NumberFormat("en-US");
 
 export const analyzeChannel = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => Input.parse(input))
+  .validator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ChannelReport> => {
-    const key =
-      data.apiKey?.trim() ||
-      process.env["YOUTUBE_API_KEY"] ||
-      process.env["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"];
+    const key = resolveYoutubeKey(data.apiKey);
     if (!key) {
       throw new Error("Missing YouTube API key. Click 'API Key' to add your key or configure YOUTUBE_API_KEY.");
     }
@@ -470,10 +462,10 @@ export async function detectOutlierVideo({
 }: {
   candidates: RecentVideoCandidate[];
   subscribersText: string;
-  subscriberCount?: number;
+  subscriberCount?: number | undefined;
   uploadFrequency: string;
   channelName: string;
-  customAiKey?: string;
+  customAiKey?: string | undefined;
 }): Promise<{
   outlierVideoTitle: string;
   outlierVideoUrl: string;
@@ -648,7 +640,7 @@ export async function getPopularVideosFromChannel(targetUrl: string): Promise<Po
   const videosUrl = `${cleanBase}/videos`;
 
   try {
-    const res = await fetch(videosUrl, {
+    const res = await fetchWithRetry(videosUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -705,7 +697,7 @@ export async function getPopularVideosFromChannel(targetUrl: string): Promise<Po
 
     // Page up to 3 pages to gather 60-90 popular videos across the whole channel archive
     for (let page = 0; page < 3; page++) {
-      const browseRes = await fetch(
+      const browseRes = await fetchWithRetry(
         `https://www.youtube.com/youtubei/v1/browse?key=${innertubeKey}`,
         {
           method: "POST",
@@ -784,7 +776,7 @@ export async function scrapePublicCompetitor(targetUrl: string, customAiKey?: st
     );
   if (vidMatch && vidMatch[1]) {
     try {
-      const vidRes = await fetch(`https://www.youtube.com/watch?v=${vidMatch[1]}`, {
+      const vidRes = await fetchWithRetry(`https://www.youtube.com/watch?v=${vidMatch[1]}`, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -811,7 +803,7 @@ export async function scrapePublicCompetitor(targetUrl: string, customAiKey?: st
   const cleanBase = url.replace(/\/videos$/, "").replace(/\/featured$/, "").replace(/\/$/, "");
   const videosUrl = `${cleanBase}/videos`;
 
-  const res = await fetch(videosUrl, {
+  const res = await fetchWithRetry(videosUrl, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -1039,7 +1031,7 @@ export async function scrapePublicCompetitor(targetUrl: string, customAiKey?: st
 }
 
 export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       url: z.string().trim().min(2).max(300),
       apiKey: z.string().trim().optional(),
@@ -1047,12 +1039,7 @@ export const analyzeCompetitorChannel = createServerFn({ method: "POST" })
     }).parse(input),
   )
   .handler(async ({ data }): Promise<CompetitorReport> => {
-    const key =
-      data.apiKey?.trim() ||
-      process.env["YOUTUBE_API_KEY"] ||
-      process.env["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_YOUTUBE_API_KEY"] ||
-      (import.meta as unknown as { env?: Record<string, string> }).env?.["YOUTUBE_API_KEY"];
+    const key = resolveYoutubeKey(data.apiKey);
 
     // If an API key is available, attempt the high-fidelity YouTube API route
     if (key) {

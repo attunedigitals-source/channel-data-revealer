@@ -42,7 +42,6 @@ import {
   PsychologyInputItem,
   PsychologyAnalysisResult,
   ClickMotivationType,
-  DAY4_EXEMPLARS,
   analyzePsychologyServer,
   formatRatingsText,
 } from "@/lib/psychology.functions";
@@ -115,7 +114,7 @@ export function AudiencePsychologySection({
   // Analysis state & results
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<PsychologyAnalysisResult[]>([]);
-  const [lastMode, setLastMode] = useState<"ai" | "heuristic" | null>(null);
+  const [lastMode, setLastMode] = useState<"ai" | "unrated" | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [filterMotivation, setFilterMotivation] = useState<ClickMotivationType | "ALL">("ALL");
   const [viewDetailMode, setViewDetailMode] = useState<"full" | "compact">("full");
@@ -180,7 +179,7 @@ export function AudiencePsychologySection({
         const combined = [...res.results, ...prev];
         return combined.map((item, idx) => ({ ...item, num: idx + 1 }));
       });
-      setLastMode(res.mode as any);
+      setLastMode(res.mode);
     } catch (err: any) {
       console.error("Audience Psychology analysis error:", err);
       alert(`Analysis failed: ${err?.message || "Unknown error"}`);
@@ -208,12 +207,6 @@ export function AudiencePsychologySection({
     setSingleTitle("");
     setSinglePremise("");
     setSingleAngle("");
-  }
-
-  // Load the 10 Day 4 Exemplars immediately
-  function handleLoadExemplars() {
-    setResults(DAY4_EXEMPLARS);
-    setLastMode("heuristic");
   }
 
   // File upload handling (.xlsx, .csv, .txt)
@@ -321,7 +314,7 @@ export function AudiencePsychologySection({
       "VISUAL HOOK," +
       "TITLE PROMISE," +
       "DIAGNOSTIC RATINGS\n" +
-      '1,"Ancient Egyptian builders produced and fitted large stone structures using stone pounders, copper tools, and sledges.","Precision Stonework","IO","Impossible Object","How Did Ancient Egyptians Achieve Such Precise Stonework?","","","","","","",""\n';
+      '1,"Commercial airliners are shaped so airflow over the curved wing surface creates a pressure difference that generates lift.","Flight Mechanics","IO","Impossible Object","How Do Airplanes Actually Stay in the Air?","","","","","","",""\n';
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -509,7 +502,7 @@ export function AudiencePsychologySection({
                 <Brain className="h-4 w-4" />
               </span>
               <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-                Day 4 Packaging Architecture
+                Packaging Architecture
               </span>
             </div>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl flex items-center gap-3">
@@ -532,17 +525,7 @@ export function AudiencePsychologySection({
               className="h-9 gap-1.5 border-primary/30 text-xs bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
             >
               <BookOpen className="h-3.5 w-3.5 text-primary" />
-              <span>Day 4 Packaging Guide</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLoadExemplars}
-              className="h-9 gap-1.5 border-border/80 text-xs bg-background/60 hover:bg-accent cursor-pointer"
-            >
-              <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-              <span>Load 10 Day 4 Exemplars</span>
+              <span>Packaging Guide</span>
             </Button>
 
             {onOpenKeyModal && (
@@ -606,7 +589,7 @@ export function AudiencePsychologySection({
                   <Input
                     value={singleTitle}
                     onChange={(e) => setSingleTitle(e.target.value)}
-                    placeholder="e.g. How Did Ancient Egyptians Achieve Such Precise Stonework?"
+                    placeholder="e.g. How Do Airplanes Actually Stay in the Air?"
                     required
                     className="h-10 text-xs bg-background/60"
                   />
@@ -632,7 +615,7 @@ export function AudiencePsychologySection({
                 <textarea
                   value={singlePremise}
                   onChange={(e) => setSinglePremise(e.target.value)}
-                  placeholder="e.g. Ancient Egyptian builders produced and fitted large stone structures using stone pounders, copper tools, and sledges; the exact methods used for some precision work remain an area of archaeological study."
+                  placeholder="e.g. Commercial airliner wings are shaped so airflow moving over the curved surface creates a pressure difference that generates lift; the exact flow behavior at extreme speeds remains an area of active aerodynamics research."
                   rows={2}
                   required
                   className="w-full rounded-xl border border-border/80 bg-background/60 p-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -721,7 +704,7 @@ export function AudiencePsychologySection({
                     </div>
                     <div>
                       <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                        <span>Upload Day 3 Workbook or Title Spreadsheet</span>
+                        <span>Upload Title Workbook or Spreadsheet</span>
                         <span className="text-[10px] font-normal text-muted-foreground font-mono">
                           (.xlsx, .csv)
                         </span>
@@ -866,7 +849,7 @@ export function AudiencePsychologySection({
                           : "border-border text-muted-foreground"
                       }`}
                     >
-                      {lastMode === "ai" ? "Gemini Packaging AI" : "Day 4 Heuristic Engine"}
+                      {lastMode === "ai" ? "AI analysis" : "Not analyzed (no AI key)"}
                     </Badge>
                   </>
                 )}
@@ -969,7 +952,7 @@ export function AudiencePsychologySection({
                   }}
                   disabled={filteredResults.length === 0}
                   className="h-8 gap-1.5 text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
-                  title="Send active idea to Story Map (Day 5)"
+                  title="Send active idea to Story Map"
                 >
                   <Compass className="h-3.5 w-3.5" />
                   <span>Story Map</span>
@@ -1162,7 +1145,7 @@ export function AudiencePsychologySection({
                                 if (el) el.scrollIntoView({ behavior: "smooth" });
                               }}
                               className="rounded p-1.5 text-indigo-400 hover:bg-indigo-500/15 hover:text-indigo-300 transition-colors cursor-pointer"
-                              title="Map into 7-Beat Story Map (Day 5)"
+                              title="Map into 7-Beat Story Map"
                             >
                               <Compass className="h-3.5 w-3.5" />
                             </button>
@@ -1301,13 +1284,13 @@ export function AudiencePsychologySection({
           </DialogContent>
         </Dialog>
 
-        {/* Day 4 Packaging Guide Dialog */}
+        {/* Packaging Guide Dialog */}
         <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 <Brain className="h-5 w-5 text-primary" />
-                <span>Audience Psychology & The Click — Day 4 Masterclass</span>
+                <span>Audience Psychology & The Click — Packaging Masterclass</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 How to package an idea so the viewer immediately understands why they should watch.
@@ -1336,7 +1319,7 @@ export function AudiencePsychologySection({
                   <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
                     <span className="font-bold text-blue-400 block text-xs">1. KNOW</span>
                     <p className="text-muted-foreground text-[11px] mt-1">
-                      The viewer wants information or a technique. <em>"How Did Ancient Egyptians Move Massive Stones?"</em> The viewer wants to know how.
+                      The viewer wants information or a technique. <em>"How Do Container Ships Stay Balanced at Sea?"</em> The viewer wants to know how.
                     </p>
                   </div>
                   <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">

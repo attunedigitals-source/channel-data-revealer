@@ -292,7 +292,7 @@ export function ApiKeyModal({
           <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
             <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-foreground">Stored Securely:</strong> Your keys are saved strictly in your browser&apos;s local storage. They are never logged or stored in external databases.
+              <strong className="text-foreground">Stored locally:</strong> Your keys are saved only in this browser's local storage and sent only to this app's own server to make requests on your behalf. They are never logged or stored in an external database — but local storage isn't encrypted, so avoid using this on a shared or public computer.
             </p>
           </div>
 

@@ -36,3 +36,8 @@ dist-ssr
 *.traineddata
 scratch/
 ~$*
+
+# Personal working files - keep business/course data out of the repo
+*.xlsx
+*.xls
+!/public/**/*.xlsx

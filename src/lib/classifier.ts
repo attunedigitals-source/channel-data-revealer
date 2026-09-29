@@ -1,3 +1,4 @@
+import { resolveAiKey, fetchWithTimeout } from "./server-config";
 export type ClassificationResult = {
   niche: string;
   style: string;
@@ -328,11 +329,7 @@ export async function classifyChannelWithAi(
 ): Promise<ClassificationResult | null> {
   const { channel, videos, avgDurationSeconds, customAiKey } = input;
 
-  const geminiKey =
-    customAiKey ||
-    process.env["GEMINI_API_KEY"] ||
-    process.env["GOOGLE_API_KEY"] ||
-    process.env["GOOGLE_AI_KEY"];
+  const geminiKey = resolveAiKey(customAiKey) || process.env["GOOGLE_API_KEY"] || process.env["GOOGLE_AI_KEY"];
 
   const lovableKey = process.env["LOVABLE_API_KEY"];
   const openAiKey = process.env["OPENAI_API_KEY"];
@@ -356,7 +353,7 @@ export async function classifyChannelWithAi(
   if (geminiKey) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-      const res = await fetch(endpoint, {
+      const res = await fetchWithTimeout(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -411,7 +408,7 @@ export async function classifyChannelWithAi(
   // Option 3: OpenAI API
   if (openAiKey) {
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -474,7 +471,7 @@ export interface OutlierPackagingInput {
   viewsSubRatioText: string;
   channelName: string;
   durationText?: string;
-  customAiKey?: string;
+  customAiKey?: string | undefined;
 }
 
 export function detectTitleFormula(title: string): string {
@@ -592,16 +589,9 @@ export function analyzeOutlierPackagingHeuristic(input: OutlierPackagingInput): 
 }
 
 export async function analyzeOutlierPackaging(input: OutlierPackagingInput): Promise<OutlierPackagingResult> {
-  const geminiKey =
-    input.customAiKey?.trim() ||
-    process.env["GEMINI_API_KEY"] ||
-    process.env["VITE_GEMINI_API_KEY"] ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.["VITE_GEMINI_API_KEY"] ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.["GEMINI_API_KEY"];
+  const geminiKey = resolveAiKey(input.customAiKey);
 
-  const lovableKey =
-    process.env["LOVABLE_AI_KEY"] ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.["LOVABLE_AI_KEY"];
+  const lovableKey = process.env["LOVABLE_AI_KEY"];
 
   const promptText = `Analyze this standout YouTube video which outperformed the channel's recent baseline views by ${input.multiplier.toFixed(1)}x.
 Channel: "${input.channelName}" (Subscribers: ${input.subscribersText})
@@ -622,7 +612,7 @@ Respond strictly with a JSON object:
   if (geminiKey) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-      const res = await fetch(endpoint, {
+      const res = await fetchWithTimeout(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

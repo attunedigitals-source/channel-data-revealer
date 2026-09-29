@@ -84,7 +84,7 @@ export function TitleGeneratorSection({
   // Generation state & results
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<TitleResultItem[]>([]);
-  const [lastMode, setLastMode] = useState<"ai" | "heuristic" | null>(null);
+  const [lastMode, setLastMode] = useState<"ai" | "unresearched" | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
 
   // Copy feedback
@@ -796,7 +796,7 @@ export function TitleGeneratorSection({
                           : "border-border text-muted-foreground"
                       }`}
                     >
-                      {lastMode === "ai" ? "Gemini AI Strategy" : "Fact-Grounded Engine"}
+                      {lastMode === "ai" ? "AI-generated (verify facts)" : "Template titles (no AI key)"}
                     </Badge>
                   </>
                 )}
@@ -895,7 +895,7 @@ export function TitleGeneratorSection({
                     document.getElementById("story-map")?.scrollIntoView({ behavior: "smooth" });
                   }}
                   className="h-8 gap-1.5 text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer shadow-sm"
-                  title="Send top generated title into a 7-Beat Story Map (Day 5)"
+                  title="Send top generated title into a 7-Beat Story Map "
                 >
                   <Compass className="h-3.5 w-3.5" />
                   <span>Story Map</span>
@@ -1098,7 +1098,7 @@ export function TitleGeneratorSection({
                               document.getElementById("story-map")?.scrollIntoView({ behavior: "smooth" });
                             }}
                             className="rounded p-1.5 text-indigo-400 hover:bg-indigo-500/15 hover:text-indigo-300 transition-colors cursor-pointer"
-                            title="Map into 7-Beat Story Map (Day 5)"
+                            title="Map into 7-Beat Story Map "
                           >
                             <Compass className="h-3.5 w-3.5" />
                           </button>
@@ -1206,7 +1206,7 @@ export function TitleGeneratorSection({
                 <span>Documentary Packaging Standard & Editorial Discipline Guide</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Master principles calibrated from the Day 3 workbook review: "Find a real mystery and package it clearly."
+                Principle: "Find a real question and package it clearly."
               </DialogDescription>
             </DialogHeader>
 
@@ -1294,14 +1294,14 @@ export function TitleGeneratorSection({
                     <thead>
                       <tr className="bg-muted/60 border-b border-border">
                         <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-32">Formula</th>
-                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Exemplar Working Title</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Example Working Title</th>
                         <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-40">Psychological Trigger</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       <tr>
                         <td className="px-3 py-2 font-mono font-bold text-primary">Q + VE</td>
-                        <td className="px-3 py-2 font-medium text-foreground">"What Would Happen If You Spent 24 Hours Near a Black Hole?"</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"What Would Happen If You Spent 24 Hours at the Bottom of the Ocean?"</td>
                         <td className="px-3 py-2 text-muted-foreground">Visceral human simulation of extreme physics</td>
                       </tr>
                       <tr>
@@ -1311,12 +1311,12 @@ export function TitleGeneratorSection({
                       </tr>
                       <tr>
                         <td className="px-3 py-2 font-mono font-bold text-primary">D + IF</td>
-                        <td className="px-3 py-2 font-medium text-foreground">"The Lost Civilization Archaeologists Finally Rediscovered Beneath the Amazon"</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"The Manufacturing Defect That Recalled Millions of Cars"</td>
                         <td className="px-3 py-2 text-muted-foreground">Hard laser evidence overturning conventional history</td>
                       </tr>
                       <tr>
                         <td className="px-3 py-2 font-mono font-bold text-primary">D (Cutting-Edge)</td>
-                        <td className="px-3 py-2 font-medium text-foreground">"What Did Cosmic-Ray Scans Actually Find Inside the Great Pyramid?"</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"What Did Satellite Data Actually Find Beneath the Ice Sheet?"</td>
                         <td className="px-3 py-2 text-muted-foreground">Modern particle physics revealing ancient secrets</td>
                       </tr>
                       <tr>
@@ -1326,7 +1326,7 @@ export function TitleGeneratorSection({
                       </tr>
                       <tr>
                         <td className="px-3 py-2 font-mono font-bold text-primary">Defensible Q</td>
-                        <td className="px-3 py-2 font-medium text-foreground">"How Did Ancient Egyptians Achieve Such Precise Stonework?"</td>
+                        <td className="px-3 py-2 font-medium text-foreground">"How Do Airplanes Actually Stay in the Air?"</td>
                         <td className="px-3 py-2 text-muted-foreground">Direct physical puzzle without sensationalism</td>
                       </tr>
                     </tbody>

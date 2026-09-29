@@ -37,8 +37,7 @@ import {
 import {
   analyzeThumbnailComparisonServer,
   regenerateThumbnailConceptServer,
-  generateHeuristicThumbnailComparison,
-  DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS,
+  generateUnanalyzedThumbnailComparison,
   CURATED_THUMBNAIL_PRESETS,
   type ThumbnailComparisonDossier,
   type CompetitorAnalysisRow,
@@ -85,7 +84,7 @@ export function ThumbnailAnalysisCreationSection({
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
   const [regenerationFeedback, setRegenerationFeedback] = useState("");
   const [regenerationStyle, setRegenerationStyle] = useState("macro-precision");
-  const [selectedPresetId, setSelectedPresetId] = useState<string>("preset-seam");
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("style-macro");
   const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
 
   // Visual Customizer Controls
@@ -137,19 +136,6 @@ export function ThumbnailAnalysisCreationSection({
     };
   }, []);
 
-  // Sync default exemplar when loaded
-  const loadEgyptianExemplar = () => {
-    setCompetitor1Title(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.competitor1.title);
-    setCompetitor1ThumbUrl(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.competitor1.thumbnailUrl);
-    setCompetitor2Title(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.competitor2.title);
-    setCompetitor2ThumbUrl(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.competitor2.thumbnailUrl);
-    setOurTitle(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.targetTitle);
-    setConceptNotes("Focus on archaeological engineering tolerances, Petrie core #7 striations, and Giza sub-millimeter casing seams.");
-    setDossier(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS);
-    setOverlayText(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.generatedThumbnail.recommendedOverlayText);
-    setOverlayBadge(DAY4_EXEMPLAR_EGYPTIAN_THUMBNAILS.generatedThumbnail.recommendedBadge);
-  };
-
   // Auto-fetch Competitor 1 metadata from YouTube URL
   const handleC1UrlBlur = async () => {
     const url = competitor1VideoUrl.trim();
@@ -190,6 +176,15 @@ export function ThumbnailAnalysisCreationSection({
     }
   };
 
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) return "Please upload a JPG, PNG, WEBP, or GIF image.";
+  if (file.size > MAX_IMAGE_BYTES) return "Image is too large \u2014 please use a file under 8MB.";
+  return null;
+}
+
   // File upload reader
   const handleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -197,6 +192,13 @@ export function ThumbnailAnalysisCreationSection({
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const error = validateImageFile(file);
+    if (error) {
+      setIncomingNotice(error);
+      setTimeout(() => setIncomingNotice(null), 4000);
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -232,11 +234,11 @@ export function ThumbnailAnalysisCreationSection({
         },
       });
       setDossier(res);
-      setOverlayText(res.generatedThumbnail.recommendedOverlayText || "REVEALED");
-      setOverlayBadge(res.generatedThumbnail.recommendedBadge || "DOCUMENTARY");
+      setOverlayText(res.generatedThumbnail.recommendedOverlayText || "");
+      setOverlayBadge(res.generatedThumbnail.recommendedBadge || "");
     } catch (err) {
-      console.warn("Server comparison failed, falling back to heuristic engine:", err);
-      const fallback = generateHeuristicThumbnailComparison({
+      console.warn("Server comparison failed:", err);
+      const fallback = generateUnanalyzedThumbnailComparison({
         ourTitle: ourTitle.trim(),
         competitor1Title: competitor1Title.trim(),
         competitor1ThumbUrl: competitor1ThumbUrl.trim() || undefined,
@@ -254,37 +256,14 @@ export function ThumbnailAnalysisCreationSection({
 
   // Switch to a curated thumbnail variation preset
   const handleSelectPreset = (preset: ThumbnailVariationPreset) => {
+    // A style angle only changes the visual treatment. It never overwrites the
+    // analysis text; use "Next Angle" / Regenerate to have the AI build a
+    // concept in this style.
     setSelectedPresetId(preset.id);
-    setCustomImageUrl(null); // Clear custom upload override so preset image displays
-    setOverlayText(preset.overlayText);
-    setOverlayBadge(preset.badge);
     setColorFilter(preset.colorFilter);
-
-    if (dossier) {
-      setDossier({
-        ...dossier,
-        ourStrategy: {
-          ...dossier.ourStrategy,
-          thumbnailUrl: preset.imageUrl,
-          thumbnailSubject: preset.focalSubject,
-          thumbnailQuestion: preset.thumbnailQuestion,
-          titlePromise: preset.titlePromise,
-          thumbnailPromise: preset.thumbnailPromise,
-          howTheyWorkTogether: preset.howTheyWorkTogether,
-        },
-        generatedThumbnail: {
-          ...dossier.generatedThumbnail,
-          imageUrl: preset.imageUrl,
-          focalSubject: preset.focalSubject,
-          promptMidjourney: preset.promptMidjourney,
-          promptDalleFlux: preset.promptDalleFlux,
-          recommendedOverlayText: preset.overlayText,
-          recommendedBadge: preset.badge,
-        },
-      });
-    }
-
-    setIncomingNotice(`Switched to "${preset.name}" variation`);
+    if (preset.overlayText) setOverlayText(preset.overlayText);
+    if (preset.badge) setOverlayBadge(preset.badge);
+    setIncomingNotice(`Style angle: "${preset.name}". Use Regenerate to build a concept in this style.`);
     setTimeout(() => setIncomingNotice(null), 3000);
   };
 
@@ -300,7 +279,7 @@ export function ThumbnailAnalysisCreationSection({
 
     const currentIndex = CURATED_THUMBNAIL_PRESETS.findIndex((p) => p.id === selectedPresetId);
     const nextIndex = (currentIndex + 1) % CURATED_THUMBNAIL_PRESETS.length;
-    const nextPreset = CURATED_THUMBNAIL_PRESETS[nextIndex];
+    const nextPreset = CURATED_THUMBNAIL_PRESETS[nextIndex] ?? CURATED_THUMBNAIL_PRESETS[0]!;
 
     try {
       const res = await runRegenerate({
@@ -374,7 +353,7 @@ export function ThumbnailAnalysisCreationSection({
 
       setSelectedPresetId(res.selectedPresetId || selectedPresetId);
       setOverlayText(res.concept.recommendedOverlayText || "SOLVED");
-      setOverlayBadge(res.concept.recommendedBadge || "DOCUMENTARY");
+      setOverlayBadge(res.concept.recommendedBadge || "");
       if (res.colorFilter) {
         setColorFilter(res.colorFilter as any);
       }
@@ -386,7 +365,7 @@ export function ThumbnailAnalysisCreationSection({
       console.warn("Regeneration failed, switching to alternative preset:", err);
       const nextPreset =
         CURATED_THUMBNAIL_PRESETS.find((p) => p.id !== selectedPresetId) ||
-        CURATED_THUMBNAIL_PRESETS[1];
+        CURATED_THUMBNAIL_PRESETS[0]!;
       handleSelectPreset(nextPreset);
       setIsRegenerateModalOpen(false);
       setIncomingNotice(`Generated alternative variation: ${nextPreset.name}`);
@@ -400,6 +379,13 @@ export function ThumbnailAnalysisCreationSection({
   const handleThumbnailImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const error = validateImageFile(file);
+    if (error) {
+      setIncomingNotice(error);
+      setTimeout(() => setIncomingNotice(null), 4000);
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -426,7 +412,7 @@ export function ThumbnailAnalysisCreationSection({
 
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = customImageUrl || dossier?.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg";
+    img.src = customImageUrl || dossier?.generatedThumbnail.imageUrl || "";
 
     img.onload = () => {
       // 1. Draw base image
@@ -615,7 +601,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               <ImageIcon className="h-3.5 w-3.5" />
             </span>
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-500">
-              Week 1 • Day 4 Packaging System
+              Week 1 • Packaging System
             </span>
             <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-[10px] h-4">
               5-Pillar Synergy Engine
@@ -638,17 +624,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
             className="h-8 gap-1.5 border-border text-xs cursor-pointer hover:bg-accent"
           >
             <HelpCircle className="h-3.5 w-3.5 text-amber-400" />
-            <span>Day 4 Study Guide</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={loadEgyptianExemplar}
-            className="h-8 gap-1.5 text-xs cursor-pointer bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Load Egyptian Exemplar</span>
+            <span>Packaging Guide</span>
           </Button>
         </div>
       </div>
@@ -891,7 +867,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
               <Input
                 value={ourTitle}
                 onChange={(e) => setOurTitle(e.target.value)}
-                placeholder="e.g. How Did Ancient Egyptians Achieve Such Precise Stonework?"
+                placeholder="Paste or type your video title"
                 className="h-8 text-xs font-medium border-amber-500/30"
                 required
               />
@@ -957,7 +933,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 <div className="flex items-start gap-3">
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border border-border/80 bg-black/20">
                     <img
-                      src={dossier.competitor1.thumbnailUrl || "/thumbnails/competitor1-egypt.jpg"}
+                      src={dossier.competitor1.thumbnailUrl || ""}
                       alt="Competitor 1"
                       className="h-full w-full object-cover"
                     />
@@ -995,7 +971,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 <div className="flex items-start gap-3">
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border border-border/80 bg-black/20">
                     <img
-                      src={dossier.competitor2.thumbnailUrl || "/thumbnails/competitor2-egypt.jpg"}
+                      src={dossier.competitor2.thumbnailUrl || ""}
                       alt="Competitor 2"
                       className="h-full w-full object-cover"
                     />
@@ -1053,7 +1029,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                   <Badge className="bg-amber-500 text-black font-extrabold text-[10px] tracking-wider uppercase">
                     OUR VIDEO REPORT
                   </Badge>
-                  <span className="text-xs text-amber-400 font-medium">Day 4 Packaging Formula</span>
+                  <span className="text-xs text-amber-400 font-medium">Packaging Formula</span>
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
                   Packaging Report for: <span className="text-amber-400">"{dossier.targetTitle}"</span>
@@ -1268,7 +1244,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 <div className="relative aspect-video w-full rounded-xl border-2 border-amber-500/40 bg-black overflow-hidden shadow-2xl group select-none">
                   {/* Base Thumbnail Image */}
                   <img
-                    src={customImageUrl || dossier.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg"}
+                    src={customImageUrl || dossier.generatedThumbnail.imageUrl || ""}
                     alt="Our Generated Thumbnail"
                     className={`w-full h-full object-cover transition-all duration-300 ${
                       colorFilter === "warm"
@@ -1528,13 +1504,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                           detail: {
                             storyTitle: ourTitle,
                             coreQuestion: dossier.ourStrategy.thumbnailQuestion,
-                            claims: [
-                              { claim: "Ancient Egyptians worked crystalline igneous rocks." },
-                              { claim: "Aswan granite has high hardness." },
-                              { claim: "Dolerite pounders were used." },
-                              { claim: "Copper tools were used in stoneworking." },
-                              { claim: "Abrasives were used." },
-                            ],
+                            claims: [{ claim: ourTitle }],
                           },
                         })
                       );
@@ -1632,7 +1602,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                     </div>
                     <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-amber-500/40 bg-black shadow-md">
                       <img
-                        src={dossier.generatedThumbnail.imageUrl || "/thumbnails/our-target-egypt.jpg"}
+                        src={dossier.generatedThumbnail.imageUrl || ""}
                         alt="Our Target Thumbnail"
                         className={`w-full h-full object-cover ${
                           colorFilter === "warm"
@@ -1676,14 +1646,14 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
       )}
 
       {/* ==========================================================
-          MODAL: DAY 4 STUDY GUIDE (VISUAL PACKAGING & THE CLICK)
+          MODAL: PACKAGING GUIDE (VISUAL PACKAGING & THE CLICK)
           ========================================================== */}
       <Dialog open={isStudyGuideOpen} onOpenChange={setIsStudyGuideOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-400" />
-              Day 4 Curriculum: Visual Packaging & The Click
+              Guide: Visual Packaging & The Click
             </DialogTitle>
             <DialogDescription className="text-xs">
               How elite documentary channels engineer irresistible title-thumbnail packages.
@@ -1697,7 +1667,7 @@ ${dossier.ourAlternativeStrategy ? `| **Concept 2: High-Curiosity Angle** | ${do
                 Title and Thumbnail must NOT repeat each other. They must MULTIPLY each other.
               </p>
               <p className="text-muted-foreground text-[11px]">
-                If your title says <em>"How Did Ancient Egyptians Cut Granite?"</em>, never put <em>"CUTTING GRANITE"</em> on the thumbnail. That is a wasted opportunity. The title poses the intellectual question; the thumbnail presents the visual tension, proof, or impossibility.
+                If your title says <em>"How Do Airplanes Stay in the Air?"</em>, never put <em>"STAYING IN THE AIR"</em> on the thumbnail. That is a wasted opportunity. The title poses the intellectual question; the thumbnail presents the visual tension, proof, or impossibility.
               </p>
             </div>
 

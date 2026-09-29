@@ -49,10 +49,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DAY5_EXEMPLAR_EGYPTIAN,
-  DAY5_EXEMPLAR_SCANPYRAMIDS,
-  DAY5_EXEMPLAR_UAP,
-  ALL_DAY5_EXEMPLARS,
   generateStoryMapServer,
   generateHeuristicStoryMap,
   type StoryMapDossier,
@@ -61,7 +57,6 @@ import {
   type VisualStorytellingScene,
   type OpenLoopItem,
   type ResearchRequiredClaim,
-  DAY5_EGYPTIAN_RESEARCH_CLAIMS,
 } from "@/lib/storymap.functions";
 
 interface StoryMapSectionProps {
@@ -73,11 +68,6 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
   const [activeStory, setActiveStory] = useState<StoryMapDossier | null>(null);
   const [storyList, setStoryList] = useState<StoryMapDossier[]>([]);
   const [activeTab, setActiveTab] = useState<"worksheet" | "engine" | "first30s" | "escalation" | "visuals" | "research">("worksheet");
-
-  const loadExemplar = (exemplar: StoryMapDossier) => {
-    setActiveStory(exemplar);
-    setStoryList((prev) => [exemplar, ...prev.filter((s) => s.id !== exemplar.id)]);
-  };
 
   const handleClearStory = () => {
     setActiveStory(null);
@@ -249,15 +239,17 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
     if (!activeStory) return;
     const updated = { ...activeStory };
     updated.elements = [...updated.elements];
+    const existing = updated.elements[index];
+    if (!existing) return;
     updated.elements[index] = {
-      ...updated.elements[index],
+      ...existing,
       yourAnswer: editingText,
     };
     setActiveStory(updated);
     setEditingRowIndex(null);
   };
 
-  // Export exact 3-column "Day 5 – Story Map" Excel workbook (.xlsx)
+  // Export exact 3-column "Story Map" Excel workbook (.xlsx)
   const exportDay5Excel = () => {
     if (!activeStory) return;
     const wb = XLSX.utils.book_new();
@@ -273,11 +265,11 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
     ws["!cols"] = [{ wch: 6 }, { wch: 25 }, { wch: 100 }];
 
-    XLSX.utils.book_append_sheet(wb, ws, "Day 5 – Story Map");
+    XLSX.utils.book_append_sheet(wb, ws, "Story Map");
     const sanitizedTitle = activeStory.workingTitle
       .replace(/[^a-zA-Z0-9]/g, "_")
       .slice(0, 30);
-    XLSX.writeFile(wb, `Day 5 - Story Map - ${sanitizedTitle}.xlsx`);
+    XLSX.writeFile(wb, `Story Map - ${sanitizedTitle}.xlsx`);
   };
 
   // Export CSV (.csv)
@@ -305,7 +297,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
     document.body.removeChild(link);
   };
 
-  // Export Combined 2-sheet Workbook (Audience Psychology + Day 5 Story Map)
+  // Export Combined 2-sheet Workbook (Audience Psychology + Story Map)
   const exportCombinedWorkbook = () => {
     if (!activeStory) return;
     const wb = XLSX.utils.book_new();
@@ -320,7 +312,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
       header: ["#", "Story Element", "Your Answer"],
     });
     wsStory["!cols"] = [{ wch: 6 }, { wch: 25 }, { wch: 100 }];
-    XLSX.utils.book_append_sheet(wb, wsStory, "Day 5 – Story Map");
+    XLSX.utils.book_append_sheet(wb, wsStory, "Story Map");
 
     // Sheet 2: Audience Psychology Row
     const rowsPsych = [
@@ -363,6 +355,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
 
         if (day5SheetName) {
           const sheet = workbook.Sheets[day5SheetName];
+          if (!sheet) return;
           const json = XLSX.utils.sheet_to_json<any>(sheet);
           if (json.length > 0) {
             const parsedElements: StoryMapElement[] = json.map((row: any, idx: number) => ({
@@ -391,7 +384,9 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
         }
 
         // Fallback: check first sheet for Title/Premise columns
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const firstSheetName = workbook.SheetNames[0];
+        const firstSheet = firstSheetName ? workbook.Sheets[firstSheetName] : undefined;
+        if (!firstSheet) return;
         const json = XLSX.utils.sheet_to_json<any>(firstSheet);
         if (json.length > 0) {
           const firstRow = json[0];
@@ -437,7 +432,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
-                  Week 1 • Day 5 System
+                  Week 1 • Story Map System
                 </span>
                 <Badge variant="outline" className="border-indigo-500/40 text-indigo-400 text-[10px] py-0 h-4">
                   Documentary Story Engine
@@ -458,7 +453,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               className="h-8 gap-1.5 text-xs border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-300 cursor-pointer"
             >
               <BookOpen className="h-3.5 w-3.5" />
-              <span>Day 5 Study Guide</span>
+              <span>Story Map Guide</span>
             </Button>
 
             <Button
@@ -489,10 +484,10 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   size="sm"
                   onClick={exportDay5Excel}
                   className="h-7 text-xs gap-1.5 px-2.5 text-foreground hover:text-primary cursor-pointer"
-                  title="Export Day 5 - Story Map 3-column Excel sheet"
+                  title="Export Story Map - Story Map 3-column Excel sheet"
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Export Day 5</span> .xlsx
+                  <span className="hidden sm:inline">Export Story Map</span> .xlsx
                 </Button>
                 <span className="text-border">|</span>
                 <Button
@@ -500,7 +495,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   size="sm"
                   onClick={exportCombinedWorkbook}
                   className="h-7 text-xs gap-1.5 px-2 text-foreground hover:text-primary cursor-pointer"
-                  title="Export combined workbook with both Audience Psychology and Day 5 Story Map sheets"
+                  title="Export combined workbook with both Audience Psychology and Story Map sheets"
                 >
                   <Layers className="h-3.5 w-3.5 text-indigo-400" />
                   <span className="hidden sm:inline">Combined</span> .xlsx
@@ -557,7 +552,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     Working Title <span className="text-primary">*</span>
                   </label>
                   <Input
-                    placeholder="e.g. How Did Ancient Egyptians Achieve Such Precise Stonework?"
+                    placeholder="e.g. How Do Airplanes Actually Stay in the Air?"
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     required
@@ -729,7 +724,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   Import Spreadsheet
                 </h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Upload an existing Day 4 packaging or Day 5 story map workbook in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xlsx</code>, <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xls</code>, or <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.csv</code>.
+                  Upload an existing exported packaging or story map workbook in <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xlsx</code>, <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.xls</code>, or <code className="bg-muted px-1 py-0.5 rounded text-[10px]">.csv</code>.
                 </p>
               </div>
               <div className="pt-4">
@@ -746,47 +741,18 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               </div>
             </div>
 
-            {/* Option 4: On-Demand Exemplars */}
-            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between hover:border-amber-500/50 transition-all group">
+            {/* Option 4: How story maps work */}
+            <div className="rounded-xl border border-border/80 bg-card p-5 flex flex-col justify-between">
               <div className="space-y-2.5">
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 w-fit">
                   <BookOpen className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-semibold text-foreground group-hover:text-amber-300 transition-colors">
-                  Load Study Exemplar
-                </h4>
+                <h4 className="text-sm font-semibold text-foreground">How story maps work</h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Inspect official reference studies from the Day 5 course to study professional documentary story structures.
+                  With an AI key, a full story map is drafted from your topic. Without one, you get a blank
+                  framework of prompts to fill in yourself. Nothing is pre-written for you, and every factual
+                  claim should still go through Fact Verification.
                 </p>
-              </div>
-              <div className="pt-4 space-y-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadExemplar(DAY5_EXEMPLAR_EGYPTIAN)}
-                  className="w-full text-[11px] h-7 justify-start gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 cursor-pointer truncate"
-                >
-                  <span>🏛️</span>
-                  <span className="truncate">Egyptian Stonework</span>
-                </Button>
-                <div className="flex gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => loadExemplar(DAY5_EXEMPLAR_SCANPYRAMIDS)}
-                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
-                  >
-                    🌌 Cosmic Rays
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => loadExemplar(DAY5_EXEMPLAR_UAP)}
-                    className="flex-1 text-[10px] h-6 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer truncate"
-                  >
-                    🛸 Chilean FLIR
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
@@ -821,42 +787,6 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   <option value={activeStory.id}>{activeStory.workingTitle}</option>
                 )}
               </select>
-            </div>
-
-            {/* 1-Click Exemplar Shortcuts */}
-            <div className="lg:col-span-4 flex items-center gap-1.5 overflow-x-auto py-1">
-              <Button
-                variant={activeStory.id === DAY5_EXEMPLAR_EGYPTIAN.id ? "default" : "secondary"}
-                size="sm"
-                onClick={() => loadExemplar(DAY5_EXEMPLAR_EGYPTIAN)}
-                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-                title="Load Official Day 5 Assignment: Ancient Egyptian Stonework"
-              >
-                <span>🏛️</span>
-                <span>Egyptian Stonework</span>
-              </Button>
-
-              <Button
-                variant={activeStory.id === DAY5_EXEMPLAR_SCANPYRAMIDS.id ? "default" : "secondary"}
-                size="sm"
-                onClick={() => loadExemplar(DAY5_EXEMPLAR_SCANPYRAMIDS)}
-                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-                title="Load ScanPyramids Cosmic Rays Study"
-              >
-                <span>🌌</span>
-                <span>Cosmic Rays</span>
-              </Button>
-
-              <Button
-                variant={activeStory.id === DAY5_EXEMPLAR_UAP.id ? "default" : "secondary"}
-                size="sm"
-                onClick={() => loadExemplar(DAY5_EXEMPLAR_UAP)}
-                className="h-7 text-[11px] gap-1 px-2.5 shrink-0 cursor-pointer"
-                title="Load Chilean Pilot UFO Investigation Study"
-              >
-                <span>🛸</span>
-                <span>Chilean FLIR</span>
-              </Button>
             </div>
 
             {/* Controls: New Manual Story, Upload, and Clear */}
@@ -923,7 +853,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      const claims = activeStory.researchClaims || [];
                       window.dispatchEvent(
                         new CustomEvent("load-to-fact-verification", {
                           detail: {
@@ -1021,7 +951,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
           <TabsList className="bg-card/70 border border-border/60 p-1">
             <TabsTrigger value="worksheet" className="text-xs gap-1.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white cursor-pointer">
               <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Day 5 Worksheet (12 Elements)</span>
+              <span>Story Map Worksheet (12 Elements)</span>
             </TabsTrigger>
             <TabsTrigger value="engine" className="text-xs gap-1.5 data-[state=active]:bg-indigo-600 data-[state=active]:text-white cursor-pointer">
               <Compass className="h-3.5 w-3.5" />
@@ -1047,7 +977,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
         </div>
 
         {/* ========================================================
-            TAB 1: DAY 5 WORKSHEET (12 CANONICAL ROWS)
+            TAB 1: STORY MAP WORKSHEET (12 CANONICAL ROWS)
             ======================================================== */}
         <TabsContent value="worksheet" className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1055,11 +985,11 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <span>The 12-Element Skeleton Table</span>
                 <span className="text-xs text-muted-foreground font-normal">
-                  (Official Day 5 Practical Assignment Layout)
+                  (Standard 12-element layout)
                 </span>
               </h4>
               <p className="text-xs text-muted-foreground">
-                Matches the exact 3-column structure required in the Day 5 assignment:{" "}
+                Matches the exact 3-column structure used by this tool:{" "}
                 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">#</code>,{" "}
                 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Story Element</code>,{" "}
                 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Your Answer</code>.
@@ -1073,7 +1003,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               className="h-8 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Download Day 5 .xlsx</span>
+              <span>Download Story Map .xlsx</span>
             </Button>
           </div>
 
@@ -1434,7 +1364,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   The First 30 Seconds Retention Formula
                 </h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Day 5 Golden Rule: <span className="text-foreground font-medium">Never reveal the entire answer in the introduction!</span> Structure every second to earn the watch.
+                  Golden Rule: <span className="text-foreground font-medium">Never reveal the entire answer in the introduction!</span> Structure every second to earn the watch.
                 </p>
               </div>
 
@@ -1704,7 +1634,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   title: "STORY IDEA",
                   color: "border-blue-500/30 bg-blue-500/5 text-blue-400",
                   desc: "What intriguing question or anomaly grabs the audience's attention?",
-                  example: "How did Egyptians fit hard granite so tightly?",
+                  example: "How does modern aircraft manufacturing achieve such tight tolerances?",
                 },
                 {
                   step: "02",
@@ -1753,7 +1683,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    Claims Requiring Primary Verification ({activeStory.researchClaims?.length || DAY5_EGYPTIAN_RESEARCH_CLAIMS.length})
+                    Claims Requiring Primary Verification ({activeStory.researchClaims?.length ?? 0})
                   </h5>
                   <p className="text-[11px] text-muted-foreground">
                     Specific statements from the workbook identified as requiring primary verification before narration.
@@ -1765,7 +1695,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      const claims = activeStory.researchClaims || [];
                       const text = claims
                         .map(
                           (c, i) =>
@@ -1784,7 +1714,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                   <Button
                     size="sm"
                     onClick={() => {
-                      const claims = activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS;
+                      const claims = activeStory.researchClaims || [];
                       window.dispatchEvent(
                         new CustomEvent("load-to-fact-verification", {
                           detail: {
@@ -1825,7 +1755,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {(activeStory.researchClaims || DAY5_EGYPTIAN_RESEARCH_CLAIMS).map((item) => (
+                    {(activeStory.researchClaims || []).map((item) => (
                       <tr key={item.id} className="hover:bg-accent/25 transition-colors">
                         <td className="px-3 py-3 align-top font-semibold text-foreground">
                           <div>{item.claim}</div>
@@ -1888,17 +1818,17 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
       )}
 
       {/* ========================================================
-          MODAL 1: DAY 5 STUDY GUIDE
+          MODAL 1: STORY MAP GUIDE
           ======================================================== */}
       <Dialog open={isStudyGuideOpen} onOpenChange={setIsStudyGuideOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-indigo-400" />
-              Day 5 Study Guide: Storytelling Fundamentals for Documentaries
+              Story Map Guide: Storytelling Fundamentals for Documentaries
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Complete reference rules from the Day 5 curriculum on moving from getting the click to earning the watch.
+              Complete reference rules from the methodology on moving from getting the click to earning the watch.
             </DialogDescription>
           </DialogHeader>
 
@@ -1914,7 +1844,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               <div className="p-3 rounded border border-border/80 bg-card">
                 <h5 className="font-semibold text-foreground mb-1">Topic vs Story</h5>
                 <p className="text-muted-foreground">
-                  <strong>Topic:</strong> "Ancient Egyptian pyramids" (boring, no direction).<br />
+                  <strong>Topic:</strong> "Commercial aviation" (broad, no direction).<br />
                   <strong>Story:</strong> "For thousands of years, nobody knew how builders achieved sub-millimeter tolerances. Modern experiments reveal the answer is more complex than expected." (Creates movement & curiosity).
                 </p>
               </div>
@@ -1968,7 +1898,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             <DialogDescription className="text-xs">
               {activeStory
                 ? `Testing opening hook for "${activeStory.workingTitle}".`
-                : "Reviewing reference opening hook (Demonstration from Day 5 Egyptian Stonework study)."}
+                : "Reviewing reference opening hook (Demonstration from the example above)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1978,7 +1908,10 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
             </div>
 
             {(() => {
-              const first30s = activeStory?.first30Seconds || DAY5_EXEMPLAR_EGYPTIAN.first30Seconds;
+              const first30s = activeStory?.first30Seconds;
+              if (!first30s) {
+                return <p className="text-muted-foreground">Generate or select a story map to see its first-30-seconds plan.</p>;
+              }
               return (
                 <div className="space-y-3">
                   <div className="p-3 rounded border border-border/80 bg-card space-y-1">
@@ -2018,7 +1951,7 @@ export function StoryMapSection({ aiApiKey, onOpenKeyModal }: StoryMapSectionPro
               Story Engine Audit (The 8 Evaluation Criteria)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Evaluate your documentary skeleton against the Day 5 master criteria.
+              Evaluate your documentary skeleton against the story map criteria.
             </DialogDescription>
           </DialogHeader>
 
