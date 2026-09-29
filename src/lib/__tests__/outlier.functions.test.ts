@@ -31,4 +31,8 @@ describe("outlier.functions", () => {
       expect(outlier.publishedDate).toBeTruthy();
     }
   });
+
+  it("verifies curated pool has at least 25 items to fill the entire screen", () => {
+    expect(CURATED_OUTLIERS.length).toBeGreaterThanOrEqual(25);
+  });
 });

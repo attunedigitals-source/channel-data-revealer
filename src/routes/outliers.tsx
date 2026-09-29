@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useState, useEffect, useMemo, type FormEvent } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from "react";
 import {
   Flame,
   Play,
@@ -120,6 +120,14 @@ export function OutliersPage() {
   const [hasServerKey, setHasServerKey] = useState(false);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
 
+  // Pagination & Continuous Infinite Scroll States
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   const getOutliersFn = useServerFn(fetchOutliers);
   const checkServerKey = useServerFn(getApiConfigStatus);
 
@@ -138,7 +146,7 @@ export function OutliersPage() {
       .catch(() => {});
   }, [checkServerKey]);
 
-  // Initial load: fetch curated outliers
+  // Initial load: fetch full screen batch of outliers (24 tiles)
   const fetchMutation = useMutation({
     mutationFn: async (params: {
       query?: string;
@@ -147,6 +155,9 @@ export function OutliersPage() {
       timeRange?: "fresh" | "all";
       minMultiplier?: number;
     }) => {
+      setPage(1);
+      setHasMore(true);
+      setNextPageToken(undefined);
       const res = await getOutliersFn({
         data: {
           query: params.query ?? query,
@@ -154,6 +165,8 @@ export function OutliersPage() {
           format: params.format ?? formatFilter,
           timeRange: params.timeRange ?? freshnessFilter,
           minMultiplier: params.minMultiplier ?? minMultiplierFilter,
+          page: 1,
+          limit: 24, // Generous initial batch to fill the entire screen!
           apiKey: apiKey || undefined,
           aiApiKey: aiApiKey || undefined,
         },
@@ -162,12 +175,97 @@ export function OutliersPage() {
     },
     onSuccess: (data) => {
       setTiles(data.outliers || []);
+      setHasMore(data.hasMore ?? true);
+      setNextPageToken(data.nextPageToken);
     },
   });
 
   useEffect(() => {
     fetchMutation.mutate({});
   }, []);
+
+  // Continuous infinite scroll loader
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore || fetchMutation.isPending) return;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const res = await getOutliersFn({
+        data: {
+          query: query.trim() || undefined,
+          mode: searchMode,
+          format: formatFilter,
+          timeRange: freshnessFilter,
+          minMultiplier: minMultiplierFilter,
+          page: nextPage,
+          limit: 18,
+          nextPageToken: nextPageToken,
+          apiKey: apiKey || undefined,
+          aiApiKey: aiApiKey || undefined,
+        },
+      });
+
+      if (res?.outliers && res.outliers.length > 0) {
+        setTiles((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const fresh = res.outliers.filter((t) => !existingIds.has(t.id));
+          return [...prev, ...(fresh.length > 0 ? fresh : res.outliers)];
+        });
+        setPage(nextPage);
+        setHasMore(res.hasMore ?? true);
+        setNextPageToken(res.nextPageToken);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.warn("Failed to load more outliers:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    isLoadingMore,
+    hasMore,
+    fetchMutation.isPending,
+    page,
+    nextPageToken,
+    query,
+    searchMode,
+    formatFilter,
+    freshnessFilter,
+    minMultiplierFilter,
+    apiKey,
+    aiApiKey,
+    getOutliersFn,
+  ]);
+
+  // Scroll listener for the container
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (!target || isLoadingMore || !hasMore || fetchMutation.isPending) return;
+    const { scrollTop, scrollHeight, clientHeight } = target;
+    if (scrollTop + clientHeight >= scrollHeight - 350) {
+      loadMore();
+    }
+  };
+
+  // IntersectionObserver for bottom sentinel
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isLoadingMore && hasMore && !fetchMutation.isPending) {
+          loadMore();
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: "350px",
+        threshold: 0.1,
+      }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadMore, isLoadingMore, hasMore, fetchMutation.isPending]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -369,7 +467,11 @@ export function OutliersPage() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 flex flex-col min-w-0 overflow-y-auto"
+      >
         {/* TOP ANNOUNCEMENT BANNER */}
         <div className="bg-[#12141f] border-b border-[#202434] px-4 py-2 flex items-center justify-between text-xs flex-wrap gap-2">
           <div className="flex items-center gap-2 text-[#a8b1cf]">
@@ -827,6 +929,53 @@ export function OutliersPage() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Extra Loading Skeletons when infinite scrolling */}
+            {isLoadingMore && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={`loading-more-${i}`}
+                    className="aspect-[9/16] rounded-2xl bg-[#141622] border border-[#202436] animate-pulse p-3 flex flex-col justify-between"
+                  >
+                    <div className="flex justify-between">
+                      <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
+                      <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-3/4 bg-[#202436] rounded"></div>
+                      <div className="h-3 w-1/2 bg-[#202436] rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Infinite Scroll Sentinel and Status Trigger */}
+            <div ref={sentinelRef} className="py-10 flex flex-col items-center justify-center gap-3">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-300 text-xs font-semibold shadow-lg">
+                  <Flame className="h-4 w-4 text-pink-400 fill-pink-500 animate-pulse" />
+                  <span>Pulling more viral outliers...</span>
+                </div>
+              ) : hasMore ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadMore()}
+                  className="border-[#262a3d] bg-[#141622] hover:bg-[#1e2234] text-xs text-[#a0a9c6] hover:text-white rounded-full px-5 py-2 shadow-sm transition-all"
+                >
+                  <Flame className="h-3.5 w-3.5 text-pink-400 fill-pink-500/30 mr-1.5" />
+                  <span>Scroll down for more or click to load</span>
+                  <ChevronDown className="h-3.5 w-3.5 ml-1.5 text-[#6c7694]" />
+                </Button>
+              ) : (
+                <div className="text-xs text-[#555d77] font-medium flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-pink-400" />
+                  <span>All available viral outliers loaded ({displayTiles.length} total)</span>
+                </div>
+              )}
             </div>
           )}
         </main>
