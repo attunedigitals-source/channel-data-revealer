@@ -3009,75 +3009,183 @@ export const fetchOutliers = createServerFn({ method: "POST" })
       // 1A. If YouTube API key is available, pull real live trending outlier videos
       if (key) {
         try {
-          const ytParams: Record<string, string> = {
-            part: "snippet,contentDetails,statistics",
-            chart: "mostPopular",
-            maxResults: String(Math.min(limit, 50)),
-          };
-          if (data.nextPageToken) {
-            ytParams["pageToken"] = data.nextPageToken;
-          }
-          const popularRes = await yt("videos", ytParams, key);
-          const ytNextToken = popularRes.nextPageToken;
-          const videos: any[] = popularRes.items ?? [];
-          if (videos.length > 0) {
-            const tiles: OutlierTile[] = videos.map((v) => {
-              const viewsNum = Number(v.statistics?.viewCount ?? 0);
-              const durSec = isoDurationToSeconds(v.contentDetails?.duration ?? "");
-              const isShort = durSec <= 60;
-              const mult = Math.max(12, Math.min(85, Math.round(viewsNum / 75000)));
-              const pubDate = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null;
-              const pubFormatted = pubDate && !isNaN(pubDate.getTime())
-                ? pubDate.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
-                : "Recent";
-              const thumbs = v.snippet?.thumbnails;
-              const thumbUrl =
-                thumbs?.maxres?.url ||
-                thumbs?.standard?.url ||
-                thumbs?.high?.url ||
-                thumbs?.medium?.url ||
-                `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
+          if (data.format === "shorts") {
+            // YouTube Search specifically for trending viral Shorts
+            const searchParams: Record<string, string> = {
+              part: "snippet",
+              type: "video",
+              videoDuration: "short",
+              q: "#shorts",
+              order: data.timeRange === "fresh" ? "date" : "viewCount",
+              maxResults: "50",
+            };
+            if (data.nextPageToken) {
+              searchParams["pageToken"] = data.nextPageToken;
+            }
+            const searchRes = await yt("search", searchParams, key);
+            const ytNextToken = searchRes.nextPageToken;
+            const videoIds = (searchRes.items ?? []).map((i: any) => i.id?.videoId).filter(Boolean);
+
+            if (videoIds.length > 0) {
+              const vidRes = await yt("videos", { part: "snippet,contentDetails,statistics", id: videoIds.join(",") }, key);
+              const videos: any[] = vidRes.items ?? [];
+
+              const channelIds = [...new Set(videos.map((v) => v.snippet?.channelId).filter(Boolean))];
+              let channelStatsMap: Record<string, { subs: number; avatar: string }> = {};
+
+              if (channelIds.length > 0) {
+                try {
+                  const chRes = await yt("channels", { part: "snippet,statistics", id: channelIds.slice(0, 50).join(",") }, key);
+                  for (const ch of chRes.items ?? []) {
+                    channelStatsMap[ch.id] = {
+                      subs: Number(ch.statistics?.subscriberCount ?? 0),
+                      avatar: ch.snippet?.thumbnails?.medium?.url || ch.snippet?.thumbnails?.default?.url || "",
+                    };
+                  }
+                } catch {}
+              }
+
+              const tiles: OutlierTile[] = videos.map((v) => {
+                const chId = v.snippet?.channelId || "";
+                const chData = channelStatsMap[chId];
+                const subsNum = chData?.subs ?? 0;
+                const viewsNum = Number(v.statistics?.viewCount ?? 0);
+                const durSec = isoDurationToSeconds(v.contentDetails?.duration ?? "");
+                const isShort = durSec <= 60 || (v.snippet?.title || "").toLowerCase().includes("#shorts");
+                const channelTitle = v.snippet?.channelTitle || "Creator";
+                const channelHandle = `@${channelTitle.replace(/\s+/g, "").toLowerCase()}`;
+                const mult = Math.max(12, Math.min(95, Math.round(viewsNum / Math.max(10000, subsNum || 50000))));
+                const pubDate = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null;
+                const pubFormatted = pubDate && !isNaN(pubDate.getTime())
+                  ? pubDate.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+                  : "Recent";
+                const thumbs = v.snippet?.thumbnails;
+                const thumbUrl =
+                  thumbs?.maxres?.url ||
+                  thumbs?.standard?.url ||
+                  thumbs?.high?.url ||
+                  thumbs?.medium?.url ||
+                  `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
+
+                return {
+                  id: v.id,
+                  title: v.snippet?.title || "Viral Outlier Short",
+                  url: `https://www.youtube.com/shorts/${v.id}`,
+                  thumbnailUrl: thumbUrl,
+                  viewsText: formatCompactViews(viewsNum),
+                  viewsNum,
+                  multiplier: mult,
+                  multiplierText: `${mult}`,
+                  durationText: formatDuration(durSec),
+                  durationSec: durSec,
+                  publishedDate: pubFormatted,
+                  publishedText: pubFormatted,
+                  isShort: true,
+                  channelTitle,
+                  channelHandle,
+                  channelUrl: `https://www.youtube.com/channel/${chId}`,
+                  channelAvatarUrl: chData?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+                  channelSubscribers: subsNum > 0 ? formatCompactViews(subsNum) : "Trending",
+                  niche: "YouTube Viral Shorts",
+                  outlierTopic: v.snippet?.title || "",
+                  outlierTitleFormula: "High-retention viral short hook",
+                  outlierThumbnailConcept: "Attention-grabbing vertical thumbnail",
+                  whyItWorked: `Surged to ${formatCompactViews(viewsNum)} views with strong vertical retention and algorithmic virality.`,
+                };
+              });
+
+              let filtered = tiles.filter((o) => o.isShort);
+              if (data.minMultiplier > 1) filtered = filtered.filter((o) => o.multiplier >= data.minMultiplier);
+
+              // Seamlessly top up with curated library if fewer than limit so screen is completely filled!
+              if (filtered.length < limit) {
+                const curatedShorts = CURATED_OUTLIERS.filter((o) => o.isShort);
+                const existingIds = new Set(filtered.map((t) => t.id));
+                const existingTitles = new Set(filtered.map((t) => t.title.toLowerCase().trim()));
+                const extra = curatedShorts.filter((c) => !existingIds.has(c.id) && !existingTitles.has(c.title.toLowerCase().trim()));
+                filtered = [...filtered, ...extra.slice(0, limit - filtered.length)];
+              }
 
               return {
-                id: v.id,
-                title: v.snippet?.title || "Trending Outlier",
-                url: `https://www.youtube.com/watch?v=${v.id}`,
-                thumbnailUrl: thumbUrl,
-                viewsText: formatCompactViews(viewsNum),
-                viewsNum,
-                multiplier: mult,
-                multiplierText: `${mult}`,
-                durationText: formatDuration(durSec),
-                durationSec: durSec,
-                publishedDate: pubFormatted,
-                publishedText: pubFormatted,
-                isShort,
-                channelTitle: v.snippet?.channelTitle || "Creator",
-                channelHandle: `@${(v.snippet?.channelTitle || "creator").replace(/\\s+/g, "").toLowerCase()}`,
-                channelUrl: `https://www.youtube.com/channel/${v.snippet?.channelId}`,
-                channelAvatarUrl: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80`,
-                channelSubscribers: "Trending",
-                niche: "YouTube Global Trending",
-                outlierTopic: v.snippet?.title,
-                outlierTitleFormula: "High-velocity trending headline",
-                outlierThumbnailConcept: "Viral video packaging",
-                whyItWorked: `Surged to ${formatCompactViews(viewsNum)} views through high velocity organic discovery.`,
+                outliers: filtered,
+                totalFound: filtered.length,
+                source: "youtube_api_shorts",
+                page,
+                hasMore: Boolean(ytNextToken),
+                nextPageToken: ytNextToken,
               };
-            });
-
-            let filtered = tiles;
-            if (data.format === "shorts") filtered = filtered.filter((o) => o.isShort);
-            if (data.format === "videos") filtered = filtered.filter((o) => !o.isShort);
-            if (data.minMultiplier > 1) filtered = filtered.filter((o) => o.multiplier >= data.minMultiplier);
-
-            return {
-              outliers: filtered,
-              totalFound: filtered.length,
-              source: "youtube_api_trending",
-              page,
-              hasMore: Boolean(ytNextToken),
-              nextPageToken: ytNextToken,
+            }
+          } else {
+            // General Most Popular videos
+            const ytParams: Record<string, string> = {
+              part: "snippet,contentDetails,statistics",
+              chart: "mostPopular",
+              maxResults: String(Math.min(limit, 50)),
             };
+            if (data.nextPageToken) {
+              ytParams["pageToken"] = data.nextPageToken;
+            }
+            const popularRes = await yt("videos", ytParams, key);
+            const ytNextToken = popularRes.nextPageToken;
+            const videos: any[] = popularRes.items ?? [];
+            if (videos.length > 0) {
+              const tiles: OutlierTile[] = videos.map((v) => {
+                const viewsNum = Number(v.statistics?.viewCount ?? 0);
+                const durSec = isoDurationToSeconds(v.contentDetails?.duration ?? "");
+                const isShort = durSec <= 60;
+                const mult = Math.max(12, Math.min(85, Math.round(viewsNum / 75000)));
+                const pubDate = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null;
+                const pubFormatted = pubDate && !isNaN(pubDate.getTime())
+                  ? pubDate.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+                  : "Recent";
+                const thumbs = v.snippet?.thumbnails;
+                const thumbUrl =
+                  thumbs?.maxres?.url ||
+                  thumbs?.standard?.url ||
+                  thumbs?.high?.url ||
+                  thumbs?.medium?.url ||
+                  `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`;
+
+                return {
+                  id: v.id,
+                  title: v.snippet?.title || "Trending Outlier",
+                  url: isShort ? `https://www.youtube.com/shorts/${v.id}` : `https://www.youtube.com/watch?v=${v.id}`,
+                  thumbnailUrl: thumbUrl,
+                  viewsText: formatCompactViews(viewsNum),
+                  viewsNum,
+                  multiplier: mult,
+                  multiplierText: `${mult}`,
+                  durationText: formatDuration(durSec),
+                  durationSec: durSec,
+                  publishedDate: pubFormatted,
+                  publishedText: pubFormatted,
+                  isShort,
+                  channelTitle: v.snippet?.channelTitle || "Creator",
+                  channelHandle: `@${(v.snippet?.channelTitle || "creator").replace(/\\s+/g, "").toLowerCase()}`,
+                  channelUrl: `https://www.youtube.com/channel/${v.snippet?.channelId}`,
+                  channelAvatarUrl: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80`,
+                  channelSubscribers: "Trending",
+                  niche: "YouTube Global Trending",
+                  outlierTopic: v.snippet?.title,
+                  outlierTitleFormula: "High-velocity trending headline",
+                  outlierThumbnailConcept: "Viral video packaging",
+                  whyItWorked: `Surged to ${formatCompactViews(viewsNum)} views through high velocity organic discovery.`,
+                };
+              });
+
+              let filtered = tiles;
+              if (data.format === "videos") filtered = filtered.filter((o) => !o.isShort);
+              if (data.minMultiplier > 1) filtered = filtered.filter((o) => o.multiplier >= data.minMultiplier);
+
+              return {
+                outliers: filtered,
+                totalFound: filtered.length,
+                source: "youtube_api_trending",
+                page,
+                hasMore: Boolean(ytNextToken),
+                nextPageToken: ytNextToken,
+              };
+            }
           }
         } catch (err) {
           console.warn("YouTube API mostPopular failed, falling back to curated library:", err);
@@ -3247,12 +3355,18 @@ export const fetchOutliers = createServerFn({ method: "POST" })
     // 3. NICHE OR KEYWORD MODE (when API key is present)
     if (key) {
       try {
+        const isShortsQuery = data.format === "shorts";
+        const searchQ = isShortsQuery && !rawQuery.toLowerCase().includes("#shorts")
+          ? `${rawQuery} #shorts`
+          : rawQuery;
+
         const searchParams: Record<string, string> = {
           part: "snippet",
-          q: rawQuery,
+          q: searchQ,
           type: "video",
+          videoDuration: isShortsQuery ? "short" : undefined,
           order: data.timeRange === "fresh" ? "date" : "viewCount",
-          maxResults: String(Math.min(limit, 50)),
+          maxResults: "50",
         };
         if (data.nextPageToken) {
           searchParams["pageToken"] = data.nextPageToken;
@@ -3284,7 +3398,7 @@ export const fetchOutliers = createServerFn({ method: "POST" })
           const tiles: OutlierTile[] = videos.map((v) => {
             const viewsNum = Number(v.statistics?.viewCount ?? 0);
             const durSec = isoDurationToSeconds(v.contentDetails?.duration ?? "");
-            const isShort = durSec <= 60;
+            const isShort = durSec <= 60 || (v.snippet?.title || "").toLowerCase().includes("#shorts");
             const chId = v.snippet?.channelId || "";
             const chData = channelStatsMap[chId];
             const subsNum = chData?.subs || 10000;
@@ -3317,7 +3431,7 @@ export const fetchOutliers = createServerFn({ method: "POST" })
             return {
               id: v.id,
               title: v.snippet?.title || "Untitled Video",
-              url: `https://www.youtube.com/watch?v=${v.id}`,
+              url: isShort ? `https://www.youtube.com/shorts/${v.id}` : `https://www.youtube.com/watch?v=${v.id}`,
               thumbnailUrl: thumbUrl,
               viewsText: formatCompactViews(viewsNum),
               viewsNum,
@@ -3345,6 +3459,14 @@ export const fetchOutliers = createServerFn({ method: "POST" })
           if (data.format === "shorts") filtered = filtered.filter((o) => o.isShort);
           if (data.format === "videos") filtered = filtered.filter((o) => !o.isShort);
           if (data.minMultiplier > 1) filtered = filtered.filter((o) => o.multiplier >= data.minMultiplier);
+
+          // Top up with curated library if less than limit so screen is completely full
+          if (data.format === "shorts" && filtered.length < limit) {
+            const curatedShorts = CURATED_OUTLIERS.filter((o) => o.isShort);
+            const existingIds = new Set(filtered.map((t) => t.id));
+            const extra = curatedShorts.filter((c) => !existingIds.has(c.id));
+            filtered = [...filtered, ...extra.slice(0, limit - filtered.length)];
+          }
 
           return {
             outliers: filtered,
