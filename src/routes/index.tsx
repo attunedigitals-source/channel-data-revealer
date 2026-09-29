@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   Film,
+  Flame,
   ImagePlus,
   KeyRound,
   Layers,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { analyzeChannel, getApiConfigStatus, type ChannelReport } from "@/lib/youtube.functions";
 import { CompetitorSection } from "@/components/CompetitorSection";
+import { OutlierSection } from "@/components/OutlierSection";
 import { ThumbnailAnalysisCreationSection } from "@/components/ThumbnailAnalysisCreationSection";
 import { TitleGeneratorSection } from "@/components/TitleGeneratorSection";
 import { AudiencePsychologySection } from "@/components/AudiencePsychologySection";
@@ -188,6 +190,17 @@ function Index() {
                 <Users className="h-3.5 w-3.5" />
                 Competition Analysis
               </a>
+              <span className="text-border">•</span>
+              <Link
+                to="/outliers"
+                className="px-2.5 py-1 text-pink-400 hover:text-pink-300 font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Flame className="h-3.5 w-3.5 fill-pink-500 text-pink-500" />
+                Viral Outliers
+                <Badge variant="secondary" className="bg-pink-500/20 text-pink-400 border-0 text-[9px] px-1 py-0 h-3.5 font-bold">
+                  NEW
+                </Badge>
+              </Link>
               <span className="text-border">•</span>
               <a
                 href="#thumbnail-lab"
@@ -378,6 +391,8 @@ function Index() {
         aiApiKey={aiApiKey}
         onOpenKeyModal={() => setKeyModalOpen(true)}
       />
+
+      <OutlierSection />
 
       <ThumbnailAnalysisCreationSection
         apiKey={apiKey}
