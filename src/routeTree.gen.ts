@@ -17,7 +17,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-
 const OutliersRoute = OutliersRouteImport.update({
   id: '/outliers',
   path: '/outliers',
