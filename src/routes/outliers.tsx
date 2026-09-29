@@ -181,9 +181,11 @@ export function OutliersPage() {
     onSuccess: (data) => {
       if (data?.outliers && data.outliers.length > 0) {
         setTiles(data.outliers);
+      } else {
+        setTiles([]);
       }
-      setHasMore(data.hasMore ?? true);
-      setNextPageToken(data.nextPageToken);
+      setHasMore(data?.hasMore ?? false);
+      setNextPageToken(data?.nextPageToken);
     },
     onError: (err) => {
       console.warn("Outliers query error, falling back to local dataset:", err);
@@ -196,11 +198,13 @@ export function OutliersPage() {
             o.channelHandle.toLowerCase().includes(qLower) ||
             (o.niche && o.niche.toLowerCase().includes(qLower)),
         );
-        setTiles(matches.length > 0 ? matches : CURATED_OUTLIERS.slice(0, 24));
+        const pool = matches.length > 0 ? matches : CURATED_OUTLIERS;
+        setTiles(pool.slice(0, 24));
+        setHasMore(pool.length > 24);
       } else {
         setTiles(CURATED_OUTLIERS.slice(0, 24));
+        setHasMore(CURATED_OUTLIERS.length > 24);
       }
-      setHasMore(true);
     },
   });
 
@@ -219,6 +223,7 @@ export function OutliersPage() {
     if (isLoadingMore || !hasMore || fetchMutation.isPending) return;
     setIsLoadingMore(true);
     const nextPage = page + 1;
+    const currentOffset = tiles.length;
     try {
       const res = await getOutliersFn({
         data: {
@@ -228,7 +233,8 @@ export function OutliersPage() {
           timeRange: freshnessFilter,
           minMultiplier: minMultiplierFilter,
           page: nextPage,
-          limit: 18,
+          offset: currentOffset,
+          limit: 24,
           nextPageToken: nextPageToken,
           apiKey: apiKey || undefined,
           aiApiKey: aiApiKey || undefined,
@@ -263,16 +269,24 @@ export function OutliersPage() {
       console.warn("Failed to load more outliers:", err);
       // Fallback: only slice brand-new items from CURATED_OUTLIERS if no query
       if (!query.trim()) {
-        const nextBatchStart = (nextPage - 1) * 18;
-        const nextBatch = CURATED_OUTLIERS.slice(nextBatchStart, nextBatchStart + 18);
+        const nextBatch = CURATED_OUTLIERS.slice(currentOffset, currentOffset + 24);
         if (nextBatch.length > 0) {
+          let addedCount = 0;
           setTiles((prev) => {
             const existingTitles = new Set(prev.map((t) => t.title.toLowerCase().trim()));
-            const fresh = nextBatch.filter((t) => !existingTitles.has(t.title.toLowerCase().trim()));
+            const existingIds = new Set(prev.map((t) => t.id));
+            const fresh = nextBatch.filter(
+              (t) => !existingTitles.has(t.title.toLowerCase().trim()) && !existingIds.has(t.id)
+            );
+            addedCount = fresh.length;
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
-          setPage(nextPage);
-          setHasMore(nextBatchStart + 18 < CURATED_OUTLIERS.length);
+          if (addedCount === 0 || currentOffset + 24 >= CURATED_OUTLIERS.length) {
+            setHasMore(false);
+          } else {
+            setPage(nextPage);
+            setHasMore(true);
+          }
         } else {
           setHasMore(false);
         }
@@ -287,6 +301,7 @@ export function OutliersPage() {
     hasMore,
     fetchMutation.isPending,
     page,
+    tiles.length,
     nextPageToken,
     query,
     searchMode,

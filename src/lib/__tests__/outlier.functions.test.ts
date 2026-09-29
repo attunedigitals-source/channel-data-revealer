@@ -32,7 +32,45 @@ describe("outlier.functions", () => {
     }
   });
 
-  it("verifies curated pool has at least 25 items to fill the entire screen", () => {
-    expect(CURATED_OUTLIERS.length).toBeGreaterThanOrEqual(25);
+  it("verifies curated pool has at least 90 items to fill multiple screens", () => {
+    expect(CURATED_OUTLIERS.length).toBeGreaterThanOrEqual(90);
+  });
+
+  it("ensures every curated outlier has a unique ID and unique title (no repetition)", () => {
+    const ids = CURATED_OUTLIERS.map((o) => o.id);
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(CURATED_OUTLIERS.length);
+
+    const titles = CURATED_OUTLIERS.map((o) => o.title.toLowerCase().trim());
+    const uniqueTitles = new Set(titles);
+    expect(uniqueTitles.size).toBe(CURATED_OUTLIERS.length);
+  });
+
+  it("verifies offset-based pagination slices cleanly without repeating items", () => {
+    const batch1 = CURATED_OUTLIERS.slice(0, 24);
+    const batch2 = CURATED_OUTLIERS.slice(24, 48);
+    const batch3 = CURATED_OUTLIERS.slice(48, 72);
+    const batch4 = CURATED_OUTLIERS.slice(72, 96);
+
+    expect(batch1.length).toBe(24);
+    expect(batch2.length).toBe(24);
+    expect(batch3.length).toBe(24);
+    expect(batch4.length).toBe(24);
+
+    const b1Ids = new Set(batch1.map((o) => o.id));
+    for (const item of batch2) {
+      expect(b1Ids.has(item.id)).toBe(false);
+    }
+    const b2Ids = new Set(batch2.map((o) => o.id));
+    for (const item of batch3) {
+      expect(b1Ids.has(item.id)).toBe(false);
+      expect(b2Ids.has(item.id)).toBe(false);
+    }
+    const b3Ids = new Set(batch3.map((o) => o.id));
+    for (const item of batch4) {
+      expect(b1Ids.has(item.id)).toBe(false);
+      expect(b2Ids.has(item.id)).toBe(false);
+      expect(b3Ids.has(item.id)).toBe(false);
+    }
   });
 });
