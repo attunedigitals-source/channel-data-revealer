@@ -220,28 +220,6 @@ export function OutliersPage() {
     setIsLoadingMore(true);
     const nextPage = page + 1;
     try {
-      // If no custom search query, we can also instantly paginate through CURATED_OUTLIERS
-      if (!query.trim()) {
-        const nextBatchStart = (nextPage - 1) * 18;
-        let nextBatch = CURATED_OUTLIERS.slice(nextBatchStart, nextBatchStart + 18);
-        if (nextBatch.length === 0) {
-          // Continuous streaming variations
-          nextBatch = CURATED_OUTLIERS.slice(0, 18).map((item, idx) => ({
-            ...item,
-            id: `${item.id}-p${nextPage}-${idx}`,
-            viewsNum: Math.round(item.viewsNum * (1 + (idx % 3) * 0.1)),
-            viewsText: `${(Math.round(item.viewsNum * (1 + (idx % 3) * 0.1)) / 1000).toFixed(1)}K`,
-            multiplier: Math.max(15, Math.min(60, Math.round(item.multiplier * (0.95 + (idx % 3) * 0.08)))),
-            multiplierText: `${Math.max(15, Math.min(60, Math.round(item.multiplier * (0.95 + (idx % 3) * 0.08))))}`,
-          }));
-        }
-        setTiles((prev) => [...prev, ...nextBatch]);
-        setPage(nextPage);
-        setHasMore(true);
-        setIsLoadingMore(false);
-        return;
-      }
-
       const res = await getOutliersFn({
         data: {
           query: query.trim() || undefined,
@@ -258,19 +236,49 @@ export function OutliersPage() {
       });
 
       if (res?.outliers && res.outliers.length > 0) {
+        let addedCount = 0;
         setTiles((prev) => {
+          const existingTitles = new Set(prev.map((t) => t.title.toLowerCase().trim()));
           const existingIds = new Set(prev.map((t) => t.id));
-          const fresh = res.outliers.filter((t) => !existingIds.has(t.id));
-          return [...prev, ...(fresh.length > 0 ? fresh : res.outliers)];
+          const trulyFresh = res.outliers.filter(
+            (t) => !existingTitles.has(t.title.toLowerCase().trim()) && !existingIds.has(t.id)
+          );
+          addedCount = trulyFresh.length;
+          if (trulyFresh.length === 0) {
+            return prev;
+          }
+          return [...prev, ...trulyFresh];
         });
-        setPage(nextPage);
-        setHasMore(res.hasMore ?? true);
-        setNextPageToken(res.nextPageToken);
+        if (addedCount === 0 || !res.hasMore) {
+          setHasMore(false);
+        } else {
+          setPage(nextPage);
+          setHasMore(Boolean(res.hasMore));
+          setNextPageToken(res.nextPageToken);
+        }
       } else {
         setHasMore(false);
       }
     } catch (err) {
       console.warn("Failed to load more outliers:", err);
+      // Fallback: only slice brand-new items from CURATED_OUTLIERS if no query
+      if (!query.trim()) {
+        const nextBatchStart = (nextPage - 1) * 18;
+        const nextBatch = CURATED_OUTLIERS.slice(nextBatchStart, nextBatchStart + 18);
+        if (nextBatch.length > 0) {
+          setTiles((prev) => {
+            const existingTitles = new Set(prev.map((t) => t.title.toLowerCase().trim()));
+            const fresh = nextBatch.filter((t) => !existingTitles.has(t.title.toLowerCase().trim()));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
+          setPage(nextPage);
+          setHasMore(nextBatchStart + 18 < CURATED_OUTLIERS.length);
+        } else {
+          setHasMore(false);
+        }
+      } else {
+        setHasMore(false);
+      }
     } finally {
       setIsLoadingMore(false);
     }
