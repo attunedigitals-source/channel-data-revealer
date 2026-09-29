@@ -32,8 +32,8 @@ describe("outlier.functions", () => {
     }
   });
 
-  it("verifies curated pool has at least 90 items to fill multiple screens", () => {
-    expect(CURATED_OUTLIERS.length).toBeGreaterThanOrEqual(90);
+  it("verifies curated pool has not less than 200 items for All Formats to fill continuous scrolling", () => {
+    expect(CURATED_OUTLIERS.length).toBeGreaterThanOrEqual(200);
   });
 
   it("ensures every curated outlier has a unique ID and unique title (no repetition)", () => {
@@ -74,15 +74,16 @@ describe("outlier.functions", () => {
     }
   });
 
-  it("verifies format filtering for shorts returns only shorts and all formats returns everything", () => {
+  it("verifies format filtering for shorts returns not less than 200 shorts and all formats returns everything", () => {
     const shortsOnly = CURATED_OUTLIERS.filter((o) => o.isShort);
-    expect(shortsOnly.length).toBeGreaterThanOrEqual(30);
+    expect(shortsOnly.length).toBeGreaterThanOrEqual(200);
     for (const item of shortsOnly) {
       expect(item.isShort).toBe(true);
       expect(item.durationSec).toBeLessThanOrEqual(60);
     }
 
     const allFormats = CURATED_OUTLIERS;
+    expect(allFormats.length).toBeGreaterThanOrEqual(200);
     expect(allFormats.length).toBeGreaterThan(shortsOnly.length);
   });
 });

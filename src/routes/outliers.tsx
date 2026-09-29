@@ -604,8 +604,8 @@ export function OutliersPage() {
             <div>
               <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                 Viral Outliers
-                <Badge variant="secondary" className="bg-pink-500/20 text-pink-300 border-0 text-[10px] font-mono">
-                  {displayTiles.length} Videos
+                <Badge variant="secondary" className="bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-mono px-2 py-0.5">
+                  {displayTiles.length} {formatFilter === "shorts" ? "Shorts" : "Outliers"} (200+ Pool)
                 </Badge>
               </h1>
               <p className="text-xs text-[#717b99]">
