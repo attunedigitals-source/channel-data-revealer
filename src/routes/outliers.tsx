@@ -932,15 +932,21 @@ export function OutliersPage() {
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
-                  className="aspect-[9/16] rounded-2xl bg-[#141622] border border-[#202436] animate-pulse p-3 flex flex-col justify-between"
+                  className="rounded-2xl bg-[#141622] border border-[#202436] animate-pulse p-2.5 flex flex-col gap-2"
                 >
-                  <div className="flex justify-between">
-                    <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
-                    <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="h-7 bg-[#1c2032] rounded-xl"></div>
+                    <div className="h-7 bg-[#1c2032] rounded-xl"></div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-3 w-3/4 bg-[#202436] rounded"></div>
-                    <div className="h-3 w-1/2 bg-[#202436] rounded"></div>
+                  <div className="aspect-[9/13] rounded-xl bg-[#171a28] p-2.5 flex flex-col justify-between">
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="h-5 w-16 bg-[#22273c] rounded-full"></div>
+                      <div className="h-5 w-10 bg-[#22273c] rounded-full"></div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="h-3 w-3/4 bg-[#22273c] rounded"></div>
+                      <div className="h-3 w-1/2 bg-[#22273c] rounded"></div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -973,10 +979,41 @@ export function OutliersPage() {
                   <div
                     key={tile.id}
                     onClick={() => setSelectedTile(tile)}
-                    className="group relative aspect-[9/16] rounded-2xl overflow-hidden bg-[#151722] border border-[#222536] hover:border-pink-500/60 shadow-lg hover:shadow-pink-500/10 cursor-pointer transition-all duration-300 flex flex-col justify-between"
+                    className="group relative rounded-2xl bg-[#141622] border border-[#222738] hover:border-pink-500/60 shadow-lg hover:shadow-pink-500/10 cursor-pointer transition-all duration-300 p-2.5 flex flex-col gap-2"
                   >
-                    {/* Background Thumbnail Image */}
-                    <div className="absolute inset-0 z-0">
+                    {/* TOP ACTION BAR: Track and Tag buttons neatly placed at the top */}
+                    <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleTrack(tile.id, e)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-medium border transition-colors ${
+                          isTracked
+                            ? "bg-pink-500/20 border-pink-500 text-pink-300 shadow-sm"
+                            : "bg-[#181a28] hover:bg-[#202538] text-[#8e98b0] hover:text-white border-[#272d42]"
+                        }`}
+                        title={isTracked ? "Tracked Outlier" : "Track this video"}
+                      >
+                        <Radio className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{isTracked ? "Tracked" : "Track"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTile(tile);
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-medium bg-[#181a28] hover:bg-[#202538] text-[#8e98b0] hover:text-white border border-[#272d42] transition-colors"
+                        title="Tags & Notes"
+                      >
+                        <Tag className="h-3 w-3 shrink-0" />
+                        <span>Tag</span>
+                      </button>
+                    </div>
+
+                    {/* VIDEO THUMBNAIL CONTAINER */}
+                    <div className="relative aspect-[9/13] rounded-xl overflow-hidden bg-[#0d0e17]">
+                      {/* Background Thumbnail Image */}
                       <img
                         src={tile.thumbnailUrl}
                         alt={tile.title}
@@ -987,100 +1024,68 @@ export function OutliersPage() {
                           (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${tile.id}/hqdefault.jpg`;
                         }}
                       />
+
                       {/* Gradient Overlays for Readability */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b12] via-[#0a0b12]/30 to-[#0a0b12]/60 group-hover:via-[#0a0b12]/20 transition-colors" />
-                    </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b12] via-transparent to-[#0a0b12]/30 pointer-events-none group-hover:via-transparent transition-colors" />
 
-                    {/* TOP ACTION BAR ON TILE */}
-                    <div className="relative z-10 p-2.5 flex items-start justify-between gap-1.5">
-                      {/* Left: Track and Tag subtle buttons */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => toggleTrack(tile.id, e)}
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur transition-all ${
-                            isTracked
-                              ? "bg-pink-500 text-white shadow-sm"
-                              : "bg-black/50 hover:bg-black/80 text-white/90 border border-white/10"
-                          }`}
-                          title={isTracked ? "Tracked Outlier" : "Track this video"}
-                        >
-                          <Radio className="h-2.5 w-2.5" />
-                          <span>{isTracked ? "Tracked" : "Track"}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedTile(tile);
-                          }}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-black/50 hover:bg-black/80 text-white/90 border border-white/10 backdrop-blur transition-colors"
-                          title="Tags & Notes"
-                        >
-                          <Tag className="h-2.5 w-2.5" />
-                          <span>Tag</span>
-                        </button>
-                      </div>
-
-                      {/* Right: Views Badge and Flame Multiplier Badge */}
-                      <div className="flex flex-col items-end gap-1">
+                      {/* TOP-RIGHT FLOATING BADGES (Views + Flame Multiplier stacked vertically) */}
+                      <div className="absolute top-2 right-2 flex flex-col items-end gap-1.5 z-10 pointer-events-none">
                         {/* Views Pill */}
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur text-white text-[11px] font-semibold border border-white/10 shadow-sm">
-                          <Eye className="h-3 w-3 text-white/80" />
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-white text-[11px] font-semibold border border-white/10 shadow-md">
+                          <Eye className="h-3 w-3 text-white/90 shrink-0" />
                           <span>{tile.viewsText}</span>
                         </div>
 
-                        {/* Outlier Flame Multiplier Badge (matching screenshot: vibrant pink/magenta pill) */}
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-600 text-white text-[11px] font-extrabold shadow-md shadow-pink-500/30">
-                          <Flame className="h-3 w-3 fill-white text-white" />
+                        {/* Outlier Flame Multiplier Badge (matching screenshot: vibrant pink pill) */}
+                        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#ff1e56] text-white text-[11px] font-extrabold shadow-md shadow-pink-500/25">
+                          <Flame className="h-3 w-3 fill-white text-white shrink-0" />
                           <span>{tile.multiplierText}</span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* CENTER HOVER PLAY CUE */}
-                    <div className="relative z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <div className="h-10 w-10 rounded-full bg-pink-500/90 text-white flex items-center justify-center shadow-lg shadow-pink-500/40 backdrop-blur scale-90 group-hover:scale-100 transition-transform">
-                        <Play className="h-4 w-4 fill-white ml-0.5" />
-                      </div>
-                    </div>
-
-                    {/* BOTTOM CREATOR & METADATA OVERLAY */}
-                    <div className="relative z-10 p-3 space-y-1.5 bg-gradient-to-t from-black/95 via-black/80 to-transparent">
-                      {/* Title snippet */}
-                      <div className="text-xs font-semibold text-white line-clamp-2 leading-snug drop-shadow-sm group-hover:text-pink-300 transition-colors">
-                        {tile.title}
+                      {/* CENTER HOVER PLAY CUE */}
+                      <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                        <div className="h-10 w-10 rounded-full bg-pink-500/90 text-white flex items-center justify-center shadow-lg shadow-pink-500/40 backdrop-blur scale-90 group-hover:scale-100 transition-transform">
+                          <Play className="h-4 w-4 fill-white ml-0.5" />
+                        </div>
                       </div>
 
-                      {/* Creator avatar, handle and date */}
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <img
-                          src={
-                            tile.channelAvatarUrl ||
-                            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                          }
-                          alt={tile.channelTitle}
-                          className="h-5 w-5 rounded-full object-cover ring-1 ring-white/20 shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80";
-                          }}
-                        />
-                        <div className="truncate flex-1">
-                          <div className="text-[11px] font-bold text-white truncate drop-shadow-sm leading-tight">
-                            {tile.channelTitle}
-                          </div>
-                          <div className="text-[10px] text-white/70 font-medium">
-                            {tile.publishedDate || tile.publishedText}
-                          </div>
+                      {/* BOTTOM CREATOR & METADATA OVERLAY */}
+                      <div className="absolute inset-x-0 bottom-0 z-10 p-2.5 space-y-1 bg-gradient-to-t from-black/95 via-black/80 to-transparent">
+                        {/* Title snippet */}
+                        <div className="text-xs font-semibold text-white line-clamp-2 leading-snug drop-shadow-sm group-hover:text-pink-300 transition-colors">
+                          {tile.title}
                         </div>
 
-                        {tile.durationText && (
-                          <div className="text-[9px] font-mono bg-black/70 px-1.5 py-0.5 rounded text-white/90 border border-white/10 shrink-0">
-                            {tile.durationText}
+                        {/* Creator avatar, handle and date */}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <img
+                            src={
+                              tile.channelAvatarUrl ||
+                              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                            }
+                            alt={tile.channelTitle}
+                            className="h-5 w-5 rounded-full object-cover ring-1 ring-white/20 shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80";
+                            }}
+                          />
+                          <div className="truncate flex-1">
+                            <div className="text-[11px] font-bold text-white truncate drop-shadow-sm leading-tight">
+                              {tile.channelTitle}
+                            </div>
+                            <div className="text-[10px] text-white/70 font-medium">
+                              {tile.publishedDate || tile.publishedText}
+                            </div>
                           </div>
-                        )}
+
+                          {tile.durationText && (
+                            <div className="text-[9px] font-mono bg-black/70 px-1.5 py-0.5 rounded text-white/90 border border-white/10 shrink-0">
+                              {tile.durationText}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1094,15 +1099,21 @@ export function OutliersPage() {
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={`loading-more-${i}`}
-                    className="aspect-[9/16] rounded-2xl bg-[#141622] border border-[#202436] animate-pulse p-3 flex flex-col justify-between"
+                    className="rounded-2xl bg-[#141622] border border-[#202436] animate-pulse p-2.5 flex flex-col gap-2"
                   >
-                    <div className="flex justify-between">
-                      <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
-                      <div className="h-6 w-14 bg-[#202436] rounded-full"></div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="h-7 bg-[#1c2032] rounded-xl"></div>
+                      <div className="h-7 bg-[#1c2032] rounded-xl"></div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-3 w-3/4 bg-[#202436] rounded"></div>
-                      <div className="h-3 w-1/2 bg-[#202436] rounded"></div>
+                    <div className="aspect-[9/13] rounded-xl bg-[#171a28] p-2.5 flex flex-col justify-between">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <div className="h-5 w-16 bg-[#22273c] rounded-full"></div>
+                        <div className="h-5 w-10 bg-[#22273c] rounded-full"></div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="h-3 w-3/4 bg-[#22273c] rounded"></div>
+                        <div className="h-3 w-1/2 bg-[#22273c] rounded"></div>
+                      </div>
                     </div>
                   </div>
                 ))}
