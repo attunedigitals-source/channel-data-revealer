@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChannelVideosRouteImport } from './routes/channel-videos'
 import { Route as OutliersRouteImport } from './routes/outliers'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChannelVideosRoute = ChannelVideosRouteImport.update({
+  id: '/channel-videos',
+  path: '/channel-videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OutliersRoute = OutliersRouteImport.update({
@@ -25,27 +31,31 @@ const OutliersRoute = OutliersRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/channel-videos': typeof ChannelVideosRoute
   '/outliers': typeof OutliersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/channel-videos': typeof ChannelVideosRoute
   '/outliers': typeof OutliersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/channel-videos': typeof ChannelVideosRoute
   '/outliers': typeof OutliersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/outliers'
+  fullPaths: '/' | '/channel-videos' | '/outliers'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/outliers'
-  id: '__root__' | '/' | '/outliers'
+  to: '/' | '/channel-videos' | '/outliers'
+  id: '__root__' | '/' | '/channel-videos' | '/outliers'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChannelVideosRoute: typeof ChannelVideosRoute
   OutliersRoute: typeof OutliersRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/channel-videos': {
+      id: '/channel-videos'
+      path: '/channel-videos'
+      fullPath: '/channel-videos'
+      preLoaderRoute: typeof ChannelVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outliers': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChannelVideosRoute: ChannelVideosRoute,
   OutliersRoute: OutliersRoute,
 }
 export const routeTree = rootRouteImport

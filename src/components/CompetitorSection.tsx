@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, type FormEvent } from "react";
+import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -90,7 +91,21 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
   const [tabMode, setTabMode] = useState<"single" | "bulk">("single");
   const [singleUrl, setSingleUrl] = useState("");
   const [bulkText, setBulkText] = useState("");
-  const [reports, setReports] = useState<CompetitorReport[]>([]);
+  const [reports, setReports] = useState<CompetitorReport[]>(() => {
+    try {
+      const stored = localStorage.getItem("virlo_competitor_reports");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("virlo_competitor_reports", JSON.stringify(reports));
+    } catch {}
+  }, [reports]);
+
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [selectedDetailReport, setSelectedDetailReport] = useState<CompetitorReport | null>(null);
 
@@ -305,6 +320,9 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
     if (reports.length === 0) return;
     if (window.confirm("Clear all competition analysis results?")) {
       setReports([]);
+      try {
+        localStorage.removeItem("virlo_competitor_reports");
+      } catch {}
     }
   }
 
@@ -1036,9 +1054,18 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                         </Badge>
                       </td>
 
-                      {/* No of Videos */}
+                      {/* No of Videos (Clickable -> Visual Tiles Page) */}
                       <td className="px-4 py-4 align-top font-mono text-xs">
-                        {r.videoCount}
+                        <Link
+                          to="/channel-videos"
+                          search={{ url: r.channelUrl, name: r.channelName }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 font-bold transition-all hover:scale-105 cursor-pointer group shadow-sm"
+                          title={`Click to view all ${r.videoCount} videos for ${r.channelName} in tiles & export to Excel/CSV`}
+                        >
+                          <Video className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+                          <span>{r.videoCount}</span>
+                          <ExternalLink className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100" />
+                        </Link>
                       </td>
 
                       {/* Typical Video Length */}
@@ -1277,14 +1304,25 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                           {r.subscribers}
                         </span>
                       </div>
-                      <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-                        <span className="text-[11px] text-muted-foreground uppercase tracking-wider block">
-                          No of Videos
-                        </span>
-                        <span className="text-sm font-bold text-foreground mt-0.5 block font-mono">
-                          {r.videoCount}
-                        </span>
-                      </div>
+                      <Link
+                        to="/channel-videos"
+                        search={{ url: r.channelUrl, name: r.channelName }}
+                        className="rounded-lg border border-border/70 bg-background/50 p-2.5 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group block"
+                        title={`Click to view all ${r.videoCount} videos for ${r.channelName} in tiles & export to Excel/CSV`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground uppercase tracking-wider block">
+                            No of Videos
+                          </span>
+                          <ExternalLink className="h-2.5 w-2.5 text-muted-foreground group-hover:text-primary opacity-60 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Video className="h-3.5 w-3.5 text-primary group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-bold text-foreground group-hover:text-primary font-mono transition-colors">
+                            {r.videoCount}
+                          </span>
+                        </div>
+                      </Link>
                       <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
                         <span className="text-[11px] text-muted-foreground uppercase tracking-wider block">
                           Typical Length
@@ -1479,12 +1517,20 @@ export function CompetitorSection({ apiKey, aiApiKey, onOpenKeyModal }: Competit
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </h3>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                     <span>{selectedDetailReport.subscribers} subscribers</span>
                     <span>•</span>
                     <span>{selectedDetailReport.uploadFrequency}</span>
                     <span>•</span>
-                    <span>{selectedDetailReport.videoCount} total videos</span>
+                    <Link
+                      to="/channel-videos"
+                      search={{ url: selectedDetailReport.channelUrl, name: selectedDetailReport.channelName }}
+                      className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                    >
+                      <Video className="h-3 w-3" />
+                      <span>{selectedDetailReport.videoCount} videos (View in Tiles)</span>
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </Link>
                   </div>
                 </div>
               </div>
