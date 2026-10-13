@@ -15,6 +15,7 @@ export type ChannelVideoTile = {
   thumbnailUrl: string;
   publishedAt: string;
   publishedDate: string;
+  publishedIso?: string;
   viewsNum: number;
   viewsText: string;
   durationSec: number;
@@ -84,6 +85,31 @@ function parseDurationText(str?: string): number {
   }
   if (parts.length === 1 && parts[0] !== undefined) {
     return parts[0];
+  }
+  return 0;
+}
+
+export function parseVideoTimestamp(publishedAt?: string, publishedDate?: string): number {
+  if (publishedAt && publishedAt.trim()) {
+    const t = new Date(publishedAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (publishedDate && publishedDate.trim()) {
+    const t = new Date(publishedDate).getTime();
+    if (!isNaN(t) && t > 0) return t;
+
+    const lower = publishedDate.toLowerCase();
+    const numMatch = lower.match(/\d+/);
+    const amount = numMatch ? parseInt(numMatch[0], 10) : 1;
+    const now = Date.now();
+
+    if (lower.includes("second")) return now - amount * 1000;
+    if (lower.includes("minute")) return now - amount * 60 * 1000;
+    if (lower.includes("hour")) return now - amount * 3600 * 1000;
+    if (lower.includes("day")) return now - amount * 86400 * 1000;
+    if (lower.includes("week")) return now - amount * 7 * 86400 * 1000;
+    if (lower.includes("month")) return now - amount * 30 * 86400 * 1000;
+    if (lower.includes("year")) return now - amount * 365 * 86400 * 1000;
   }
   return 0;
 }
@@ -242,11 +268,15 @@ export const fetchChannelVideos = createServerFn({ method: "POST" })
                 const isShort = durSec <= 60 || (v.snippet?.title || "").toLowerCase().includes("#shorts");
                 const mult = medianViews > 0 ? viewsNum / medianViews : 1.0;
                 const pubDate = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null;
+                const publishedIso =
+                  pubDate && !isNaN(pubDate.getTime())
+                    ? pubDate.toISOString().slice(0, 10)
+                    : "";
                 const pubFormatted =
                   pubDate && !isNaN(pubDate.getTime())
                     ? pubDate.toLocaleDateString("en-US", {
-                        day: "numeric",
                         month: "short",
+                        day: "numeric",
                         year: "numeric",
                       })
                     : "Recent";
@@ -275,6 +305,7 @@ export const fetchChannelVideos = createServerFn({ method: "POST" })
                   thumbnailUrl: thumbUrl,
                   publishedAt: v.snippet?.publishedAt || "",
                   publishedDate: pubFormatted,
+                  publishedIso: publishedIso || undefined,
                   viewsNum,
                   viewsText: formatCompactViews(viewsNum),
                   durationSec: durSec,
@@ -289,6 +320,13 @@ export const fetchChannelVideos = createServerFn({ method: "POST" })
                   commentsNum: Number(v.statistics?.commentCount ?? 0),
                 };
               });
+
+              // Ensure videos are arranged by dates with the latest being at the top
+              tiles.sort(
+                (a, b) =>
+                  parseVideoTimestamp(b.publishedAt, b.publishedDate) -
+                  parseVideoTimestamp(a.publishedAt, a.publishedDate),
+              );
 
               return {
                 channel,
@@ -520,6 +558,13 @@ async function scrapePublicChannelVideos(targetUrl: string): Promise<{
       viewsSubRatio,
     };
   });
+
+  // Ensure scraped videos are arranged by dates with the latest being at the top
+  tiles.sort(
+    (a, b) =>
+      parseVideoTimestamp(b.publishedAt, b.publishedDate) -
+      parseVideoTimestamp(a.publishedAt, a.publishedDate),
+  );
 
   return {
     channel,

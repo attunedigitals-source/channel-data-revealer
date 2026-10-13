@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   fetchChannelVideos,
+  parseVideoTimestamp,
   type ChannelVideoTile,
   type ChannelDetails,
 } from "@/lib/channel-videos.functions";
@@ -82,7 +83,7 @@ export function ChannelVideosPage() {
   // Filters & Controls
   const [searchQuery, setSearchQuery] = useState("");
   const [formatFilter, setFormatFilter] = useState<"all" | "videos" | "shorts">("all");
-  const [sortOption, setSortOption] = useState<"views" | "date" | "multiplier" | "duration" | "oldest">("views");
+  const [sortOption, setSortOption] = useState<"date" | "views" | "multiplier" | "duration" | "oldest">("date");
   const [minMultiplier, setMinMultiplier] = useState<number>(1);
   const [selectedTile, setSelectedTile] = useState<ChannelVideoTile | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -200,21 +201,21 @@ export function ChannelVideosPage() {
 
     // Sorting
     result.sort((a, b) => {
+      if (sortOption === "date") {
+        return (
+          parseVideoTimestamp(b.publishedAt, b.publishedDate) -
+          parseVideoTimestamp(a.publishedAt, a.publishedDate)
+        );
+      }
+      if (sortOption === "oldest") {
+        return (
+          parseVideoTimestamp(a.publishedAt, a.publishedDate) -
+          parseVideoTimestamp(b.publishedAt, b.publishedDate)
+        );
+      }
       if (sortOption === "views") return b.viewsNum - a.viewsNum;
       if (sortOption === "multiplier") return b.multiplier - a.multiplier;
       if (sortOption === "duration") return b.durationSec - a.durationSec;
-      if (sortOption === "date") {
-        const dateA = new Date(a.publishedAt).getTime();
-        const dateB = new Date(b.publishedAt).getTime();
-        if (!isNaN(dateA) && !isNaN(dateB)) return dateB - dateA;
-        return 0;
-      }
-      if (sortOption === "oldest") {
-        const dateA = new Date(a.publishedAt).getTime();
-        const dateB = new Date(b.publishedAt).getTime();
-        if (!isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
-        return 0;
-      }
       return 0;
     });
 
@@ -229,27 +230,54 @@ export function ChannelVideosPage() {
       const utils = XLSX.utils || (XLSX as any).default?.utils;
       const write = XLSX.write || (XLSX as any).default?.write;
 
-      const data = filteredVideos.map((v, index) => ({
-        "No.": index + 1,
-        "Title": v.title,
-        "Date Uploaded": v.publishedDate || v.publishedAt,
-        "Number of Views": v.viewsNum,
-        "Views (Formatted)": v.viewsText,
-        "Duration": v.durationText,
-        "Duration (Seconds)": v.durationSec,
-        "Format": v.isShort ? "Short" : "Video",
-        "Outlier Multiplier": v.multiplierText,
-        "Views/Subscribers Ratio": v.viewsSubRatio || "N/A",
-        "Video URL": v.url,
-        "Channel Name": channel?.title || v.channelTitle,
-        "Channel URL": channel?.url || v.channelUrl,
-      }));
+      // Always sort exported data by date descending with the latest at the top
+      const exportList = [...filteredVideos].sort(
+        (a, b) =>
+          parseVideoTimestamp(b.publishedAt, b.publishedDate) -
+          parseVideoTimestamp(a.publishedAt, a.publishedDate),
+      );
+
+      const data = exportList.map((v, index) => {
+        const pubDateObj = v.publishedAt ? new Date(v.publishedAt) : null;
+        const isoDate =
+          v.publishedIso ||
+          (pubDateObj && !isNaN(pubDateObj.getTime())
+            ? pubDateObj.toISOString().slice(0, 10)
+            : "");
+        const formattedDate =
+          v.publishedDate ||
+          (pubDateObj && !isNaN(pubDateObj.getTime())
+            ? pubDateObj.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "Recent");
+
+        return {
+          "No.": index + 1,
+          "Title": v.title,
+          "Date Uploaded": formattedDate,
+          "Date Uploaded (YYYY-MM-DD)": isoDate || formattedDate,
+          "Number of Views": v.viewsNum,
+          "Views (Formatted)": v.viewsText,
+          "Duration": v.durationText,
+          "Duration (Seconds)": v.durationSec,
+          "Format": v.isShort ? "Short" : "Video",
+          "Outlier Multiplier": v.multiplierText,
+          "Views/Subscribers Ratio": v.viewsSubRatio || "N/A",
+          "Video URL": v.url,
+          "Channel Name": channel?.title || v.channelTitle,
+          "Channel URL": channel?.url || v.channelUrl,
+        };
+      });
 
       const worksheet = utils.json_to_sheet(data);
       worksheet["!cols"] = [
         { wch: 6 },
         { wch: 45 },
         { wch: 18 },
+        { wch: 22 },
         { wch: 16 },
         { wch: 14 },
         { wch: 12 },
@@ -292,21 +320,48 @@ export function ChannelVideosPage() {
   // Export to CSV
   function exportToCsv() {
     if (filteredVideos.length === 0) return;
-    const data = filteredVideos.map((v, index) => ({
-      "No.": index + 1,
-      "Title": v.title,
-      "Date Uploaded": v.publishedDate || v.publishedAt,
-      "Number of Views": v.viewsNum,
-      "Views (Formatted)": v.viewsText,
-      "Duration": v.durationText,
-      "Duration (Seconds)": v.durationSec,
-      "Format": v.isShort ? "Short" : "Video",
-      "Outlier Multiplier": v.multiplierText,
-      "Views/Subscribers Ratio": v.viewsSubRatio || "N/A",
-      "Video URL": v.url,
-      "Channel Name": channel?.title || v.channelTitle,
-      "Channel URL": channel?.url || v.channelUrl,
-    }));
+
+    // Always sort exported data by date descending with the latest at the top
+    const exportList = [...filteredVideos].sort(
+      (a, b) =>
+        parseVideoTimestamp(b.publishedAt, b.publishedDate) -
+        parseVideoTimestamp(a.publishedAt, a.publishedDate),
+    );
+
+    const data = exportList.map((v, index) => {
+      const pubDateObj = v.publishedAt ? new Date(v.publishedAt) : null;
+      const isoDate =
+        v.publishedIso ||
+        (pubDateObj && !isNaN(pubDateObj.getTime())
+          ? pubDateObj.toISOString().slice(0, 10)
+          : "");
+      const formattedDate =
+        v.publishedDate ||
+        (pubDateObj && !isNaN(pubDateObj.getTime())
+          ? pubDateObj.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "Recent");
+
+      return {
+        "No.": index + 1,
+        "Title": v.title,
+        "Date Uploaded": formattedDate,
+        "Date Uploaded (YYYY-MM-DD)": isoDate || formattedDate,
+        "Number of Views": v.viewsNum,
+        "Views (Formatted)": v.viewsText,
+        "Duration": v.durationText,
+        "Duration (Seconds)": v.durationSec,
+        "Format": v.isShort ? "Short" : "Video",
+        "Outlier Multiplier": v.multiplierText,
+        "Views/Subscribers Ratio": v.viewsSubRatio || "N/A",
+        "Video URL": v.url,
+        "Channel Name": channel?.title || v.channelTitle,
+        "Channel URL": channel?.url || v.channelUrl,
+      };
+    });
 
     const escapeCsv = (val: any) => {
       if (val == null) return '""';
@@ -580,9 +635,9 @@ export function ChannelVideosPage() {
                 onChange={(e) => setSortOption(e.target.value as any)}
                 className="h-9 rounded-lg border border-[#282d42] bg-[#151724] px-2.5 text-xs text-white focus:border-pink-500 focus:outline-none cursor-pointer"
               >
+                <option value="date">Most Recent Upload (Latest First)</option>
                 <option value="views">Most Views</option>
                 <option value="multiplier">Highest Outlier Multiplier</option>
-                <option value="date">Most Recent Upload</option>
                 <option value="oldest">Oldest Upload</option>
                 <option value="duration">Longest Duration</option>
               </select>
